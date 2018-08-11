@@ -1,11 +1,11 @@
-/* db_types.h - type definitions for a simple virtual machine
+/* adv2types.h - type definitions for a simple virtual machine
  *
- * Copyright (c) 2014 by David Michael Betz.  All rights reserved.
+ * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *
  */
 
-#ifndef __DB_TYPES_H__
-#define __DB_TYPES_H__
+#ifndef __ADV2TYPES_H__
+#define __ADV2TYPES_H__
 
 /**********/
 /* Common */

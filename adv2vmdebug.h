@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef __DB_VMDEBUG_H__
-#define __DB_VMDEBUG_H__
+#ifndef __ADV2VMDEBUG_H__
+#define __ADV2VMDEBUG_H__
 
 #include <stdint.h>
 

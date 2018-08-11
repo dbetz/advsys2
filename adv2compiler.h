@@ -1,11 +1,11 @@
-/* db_compiler.h - definitions for a simple basic compiler
+/* adv2compiler.h - definitions for a simple basic compiler
  *
- * Copyright (c) 2014 by David Michael Betz.  All rights reserved.
+ * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *
  */
 
-#ifndef __DB_COMPILER_H__
-#define __DB_COMPILER_H__
+#ifndef __ADV2COMPILER_H__
+#define __ADV2COMPILER_H__
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -307,7 +307,7 @@ void UngetC(ParseContext *c);
 int GetLine(ParseContext *c);
 void ParseError(ParseContext *c, char *fmt, ...);
 
-/* db_symbols.c */
+/* adv2symbols.c */
 void InitSymbolTable(SymbolTable *table);
 Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
 Symbol *AddArgument(ParseContext *c, const char *name, StorageClass storageClass, int value);
@@ -315,7 +315,7 @@ Symbol *AddLocal(ParseContext *c, const char *name, StorageClass storageClass, i
 Symbol *FindSymbol(SymbolTable *table, const char *name);
 int IsConstant(Symbol *symbol);
 
-/* db_generate.c */
+/* adv2generate.c */
 void code_functiondef(ParseContext *c, ParseTreeNode *expr);
 
 #endif

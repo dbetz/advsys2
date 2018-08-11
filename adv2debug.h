@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef __DB_DEBUG_H__
-#define __DB_DEBUG_H__
+#ifndef __ADV2DEBUG_H__
+#define __ADV2DEBUG_H__
 
 #include "adv2compiler.h"
 

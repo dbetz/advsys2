@@ -1,6 +1,6 @@
-/* db_expr.c - expression parser
+/* adv2parse.c - parser
  *
- * Copyright (c) 2014 by David Michael Betz.  All rights reserved.
+ * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *
  */
 

@@ -1,11 +1,11 @@
-/* db_image.h - compiled image file definitions
+/* adv2image.h - compiled image file definitions
  *
- * Copyright (c) 2014 by David Michael Betz.  All rights reserved.
+ * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *
  */
 
-#ifndef __DB_IMAGE_H__
-#define __DB_IMAGE_H__
+#ifndef __ADV2IMAGE_H__
+#define __ADV2IMAGE_H__
 
 #include <stdarg.h>
 #include "adv2types.h"

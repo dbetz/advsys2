@@ -1,4 +1,4 @@
-/* adv2exe.c - bytecode interpreter for a simple virtual machine
+/* adv2int.c - bytecode interpreter for a simple virtual machine
  *
  * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *

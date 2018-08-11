@@ -1,6 +1,6 @@
-/* db_generate.c - code generation functions
+/* adv2gen.c - code generation functions
  *
- * Copyright (c) 2014 by David Michael Betz.  All rights reserved.
+ * Copyright (c) 2018 by David Michael Betz.  All rights reserved.
  *
  */
 
