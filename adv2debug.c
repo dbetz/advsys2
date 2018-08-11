@@ -11,7 +11,6 @@
 #include "adv2debug.h"
 
 static void PrintNodeList(NodeListEntry *entry, int indent);
-static void PrintSymbols(SymbolTable *table, char *tag, int indent);
 static void PrintPrintOpList(PrintOp *op, int indent);
 
 void PrintNode(ParseTreeNode *node, int indent)
@@ -205,15 +204,5 @@ static void PrintPrintOpList(PrintOp *op, int indent)
 	        break;
         }
         op = op->next;
-    }
-}
-
-static void PrintSymbols(SymbolTable *table, char *tag, int indent)
-{
-    Symbol *sym;
-    if ((sym = table->head) != NULL) {
-	    printf("%*s%s\n", indent, "", tag);
-        for (; sym != NULL; sym = sym->next)
-            printf("%*s   %s %08x: %08x\n", indent, "", sym->name, (VMVALUE)sym, sym->value);
     }
 }

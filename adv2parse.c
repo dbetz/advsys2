@@ -5,7 +5,11 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include "adv2compiler.h"
+#include "adv2debug.h"
+#include "adv2vm.h"
+#include "adv2vmdebug.h"
 
 /* local function prototypes */
 static void ParseDef(ParseContext *c);
@@ -13,6 +17,10 @@ static void ParseConstantDef(ParseContext *c, char *name);
 static void ParseFunctionDef(ParseContext *c, char *name);
 static void ParseVar(ParseContext *c);
 static void ParseObject(ParseContext *c, char *name);
+static void ParseProperty(ParseContext *c);
+static ParseTreeNode *ParseFunction(ParseContext *c);
+static ParseTreeNode *ParseMethod(ParseContext *c);
+static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offsetma);
 static ParseTreeNode *ParseIf(ParseContext *c);
 static ParseTreeNode *ParseWhile(ParseContext *c);
 static ParseTreeNode *ParseDoWhile(ParseContext *c);
@@ -48,7 +56,6 @@ static ParseTreeNode *MakeBinaryOpNode(ParseContext *c, int op, ParseTreeNode *l
 static ParseTreeNode *MakeAssignmentOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
 static ParseTreeNode *NewParseTreeNode(ParseContext *c, int type);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
-static Symbol *AddSymbol(ParseContext *c, SymbolTable *table, const char *name, int value);
 static int IsIntegerLit(ParseTreeNode *node);
 
 /* ParseDeclarations - parse variable, object, and function declarations */
@@ -73,6 +80,11 @@ void ParseDeclarations(ParseContext *c)
             strcpy(name, c->token);
             ParseObject(c, name);
             break;
+        case T_PROPERTY:
+            ParseProperty(c);
+            break;
+        case T_EOF:
+            return;
         default:
             ParseError(c, "unknown declaration");
             break;
@@ -97,7 +109,7 @@ static void ParseDef(ParseContext *c)
 
     /* otherwise, assume a function definition */
     else {
-        Require(c, tkn, '(');
+        SaveToken(c, tkn);
         ParseFunctionDef(c, name);
         complete = VMFALSE;
     }
@@ -124,9 +136,26 @@ static void ParseConstantDef(ParseContext *c, char *name)
 /* ParseFunctionDef - parse a 'def <name> () {}' statement */
 static void ParseFunctionDef(ParseContext *c, char *name)
 {
+    int functionNumber, codeLength;
+    ParseTreeNode *node;
+    uint8_t *code;
+    Symbol *sym;
+    
+    /* allocate a function table entry */
+    if (c->functionCount >= MAXFUNCTIONS)
+        ParseError(c, "too many functions");
+    functionNumber = ++c->functionCount;
+        
     /* enter the function name in the global symbol table */
-    AddGlobal(c, name, SC_VARIABLE, 0);
-    ParseFunction(c);
+    sym = AddGlobal(c, name, SC_VARIABLE, functionNumber);
+    
+    node = ParseFunction(c);
+    PrintNode(node, 0);
+    
+    code = code_functiondef(c, node, &codeLength);
+    c->functionTable[functionNumber] = code - c->codeBuf;
+    
+    DecodeFunction(code, codeLength);
 }
 
 /* ParseVar - parse the 'var' statement */
@@ -141,11 +170,74 @@ static void ParseVar(ParseContext *c)
 }
 
 /* ParseObject - parse the 'object' statement */
-static void ParseObject(ParseContext *c, char *name)
+static void ParseObject(ParseContext *c, char *protoName)
 {
+    VMVALUE proto = protoName ? FindObject(c, protoName) : NIL;
+    char name[MAXTOKEN], propertyName[MAXTOKEN];
+    int tkn;
+    
+    /* get the name of the object being defined */
+    FRequire(c, T_IDENTIFIER);
+    strcpy(name, c->token);
+    
+    /* parse object properties */
+    FRequire(c, '{');
+    while ((tkn = GetToken(c)) != '}') {
+        VMVALUE shared = VMTRUE;
+        if (tkn == T_SHARED) {
+            shared = VMTRUE;
+            tkn = GetToken(c);
+        }
+        Require(c, tkn, T_IDENTIFIER);
+        strcpy(propertyName, c->token);
+        FRequire(c, ':');
+        if ((tkn = GetToken(c)) == T_METHOD) {
+            ParseTreeNode *node;
+            uint8_t *code;
+            int codeLength;
+            node = ParseMethod(c);
+            PrintNode(node, 0);
+            code = code_functiondef(c, node, &codeLength);
+            if (c->functionCount >= MAXFUNCTIONS)
+                ParseError(c, "too many functions");
+            c->functionTable[++c->functionCount] = code - c->codeBuf;
+            DecodeFunction(code, codeLength);
+        }
+        else {
+            SaveToken(c, tkn);
+        }
+        FRequire(c, ';');
+    }
+}
+
+/* ParseProperty - parse the 'property' statement */
+static void ParseProperty(ParseContext *c)
+{
+    int tkn;
+    do {
+        FRequire(c, T_IDENTIFIER);
+        AddGlobal(c, c->token, SC_CONSTANT, ++c->propertyCount);
+    } while ((tkn = GetToken(c)) == ',');
+    Require(c, tkn, ';');
 }
 
 #if 0
+
+/* do_object - handle object (LOCATION,OBJECT,ACTOR) definitions */
+int do_object(char *cname,int class)
+{
+    int tkn,obj,obase,osize,i,p;
+
+printf("[ %s: ",cname);
+    frequire(T_IDENTIFIER);
+printf("%s ]\n",t_token);
+    obj = curobj = oenter(t_token);
+
+    /* initialize the object */
+    objbuf[O_CLASS/2] = class;
+    objbuf[O_NOUNS/2] = NIL;
+    objbuf[O_ADJECTIVES/2] = NIL;
+    objbuf[O_NPROPERTIES/2] = nprops = 0;
 
     /* copy the property list of the class object */
     if (class) {
@@ -156,6 +248,32 @@ static void ParseObject(ParseContext *c, char *name)
                 addprop(getword(obase+O_PROPERTIES+p),0,
                         getword(obase+O_PROPERTIES+p+2));
     }
+
+    /* process statements until end of file */
+    while ((tkn = token()) == T_OPEN) {
+        frequire(T_IDENTIFIER);
+        if (match("property"))
+            do_property(0);
+        else if (match("class-property"))
+            do_property(P_CLASS);
+        else if (match("method"))
+            do_method();
+        else
+            error("Unknown object definition statement type");
+    }
+    require(tkn,T_CLOSE);
+
+    /* copy the object to data memory */
+    osize = O_SIZE/2 + nprops*2;
+    obase = dalloc(osize*2);
+    for (i = p = 0; i < osize; i++, p += 2)
+        putword(obase+p,objbuf[i]);
+    otable[obj] = obase;
+    curobj = NIL;
+
+    /* return the object number */
+    return (obj);
+}
 
 /* do_property - handle the <PROPERTY ... > statement */
 void do_property(int flags)
@@ -266,25 +384,47 @@ void addprop(int prop,int flags,int value)
 #endif
 
 /* ParseFunction - parse a function definition */
-ParseTreeNode *ParseFunction(ParseContext *c)
+static ParseTreeNode *ParseFunction(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
-    int localOffset = 0;
-    int tkn;
     
     c->function = node;
     InitSymbolTable(&node->u.functionDef.arguments);
     InitSymbolTable(&node->u.functionDef.locals);
     c->block = NULL;
     
+    return ParseFunctionBody(c, node, 0);
+}
+
+/* ParseMethod - parse a method definition */
+static ParseTreeNode *ParseMethod(ParseContext *c)
+{
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
+    
+    c->function = node;
+    InitSymbolTable(&node->u.functionDef.arguments);
+    InitSymbolTable(&node->u.functionDef.locals);
+    c->block = NULL;
+    
+    AddSymbol(c, &node->u.functionDef.arguments, "self", SC_VARIABLE, 0);
+    AddSymbol(c, &node->u.functionDef.arguments, "(dummy)", SC_VARIABLE, 1);
+    
+    return ParseFunctionBody(c, node, 2);
+}
+
+/* ParseFunctionBody - parse a function argument list and body */
+static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offset)
+{
+    int localOffset = 0;
+    int tkn;
+
     /* parse the argument list */
     FRequire(c, '(');
     if ((tkn = GetToken(c)) != ')') {
-        int offset = 0;
         SaveToken(c, tkn);
         do {
             FRequire(c, T_IDENTIFIER);
-            AddSymbol(c, &node->u.functionDef.arguments, c->token, offset);
+            AddSymbol(c, &node->u.functionDef.arguments, c->token, SC_VARIABLE, offset);
             ++offset;
         } while ((tkn = GetToken(c)) == ',');
     }
@@ -294,7 +434,7 @@ ParseTreeNode *ParseFunction(ParseContext *c)
     while ((tkn = GetToken(c)) == T_VAR) {
         do {
             FRequire(c, T_IDENTIFIER);
-            AddSymbol(c, &node->u.functionDef.locals, c->token, localOffset);
+            AddSymbol(c, &node->u.functionDef.locals, c->token, SC_VARIABLE, localOffset);
             ++localOffset;
         } while ((tkn = GetToken(c)) == ',');
         Require(c, tkn, ';');
@@ -1204,48 +1344,6 @@ static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTr
     **ppNextEntry = entry;
     *ppNextEntry = &entry->next;
 }
-
-/* InitSymbolTable - initialize a symbol table */
-void InitSymbolTable(SymbolTable *table)
-{
-    table->head = NULL;
-    table->pTail = &table->head;
-    table->count = 0;
-}
-
-/* AddSymbol - add a symbol to a symbol table */
-static Symbol *AddSymbol(ParseContext *c, SymbolTable *table, const char *name, int value)
-{
-    size_t size = sizeof(Symbol) + strlen(name);
-    Symbol *sym;
-    
-    /* allocate the symbol structure */
-    sym = (Symbol *)LocalAlloc(c, size);
-    strcpy(sym->name, name);
-    sym->value = value;
-    sym->next = NULL;
-
-    /* add it to the symbol table */
-    *table->pTail = sym;
-    table->pTail = &sym->next;
-    ++table->count;
-    
-    /* return the symbol */
-    return sym;
-}
-
-/* FindSymbol - find a symbol in a symbol table */
-Symbol *FindSymbol(SymbolTable *table, const char *name)
-{
-    Symbol *sym = table->head;
-    while (sym) {
-        if (strcmp(name, sym->name) == 0)
-            return sym;
-        sym = sym->next;
-    }
-    return NULL;
-}
-
 /* IsConstant - check to see if the value of a symbol is a constant */
 int IsConstant(Symbol *symbol)
 {
@@ -1257,12 +1355,3 @@ static int IsIntegerLit(ParseTreeNode *node)
 {
     return node->nodeType == NodeTypeIntegerLit;
 }
-
-/* LocalAlloc - allocate memory from the local heap */
-void *LocalAlloc(ParseContext *c, size_t size)
-{
-    void *data = (void *)malloc(size);
-    if (!data) Abort(c, "insufficient memory");
-    return data;
-}
-

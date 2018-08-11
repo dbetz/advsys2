@@ -4,6 +4,7 @@
  *
  */
 
+#include <string.h>
 #include "adv2compiler.h"
 
 /* local function prototypes */
@@ -23,9 +24,6 @@ static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
-static VMWORD rd_cword(ParseContext *c, VMUVALUE off);
-static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v);
-static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 static void PushBlock(ParseContext *c, Block *block, BlockType type);
 static void PopBlock(ParseContext *c);
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
@@ -37,6 +35,18 @@ static int putcbyte(ParseContext *c, int v);
 static int putcword(ParseContext *c, VMWORD v);
 static int putclong(ParseContext *c, VMVALUE v);
 static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
+
+/* code_functiondef - generate code for a function definition */
+uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
+{
+    c->codeBase = c->codeFree;
+    putcbyte(c, OP_FRAME);
+    putcbyte(c, expr->u.functionDef.locals.count + 2);
+    code_statement(c, expr->u.functionDef.body);
+    putcbyte(c, OP_RETURN);
+    *pLength = c->codeFree - c->codeBase;
+    return c->codeBase;
+}
 
 /* code_lvalue - generate code for an l-value expression */
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
@@ -57,9 +67,6 @@ static void code_rvalue(ParseContext *c, ParseTreeNode *expr)
 static void code_statement(ParseContext *c, ParseTreeNode *expr)
 {
     switch (expr->nodeType) {
-    case NodeTypeFunctionDef:
-        code_functiondef(c, expr);
-        break;
     case NodeTypeIf:
         code_if(c, expr);
         break;
@@ -94,17 +101,6 @@ static void code_statement(ParseContext *c, ParseTreeNode *expr)
         code_print(c, expr);
         break;
     }
-}
-
-/* code_functiondef - generate code for a function definition */
-void code_functiondef(ParseContext *c, ParseTreeNode *expr)
-{
-    c->codeFree = c->codeBuf;
-    c->codeTop = c->codeBuf + sizeof(c->codeBuf);
-    putcbyte(c, OP_FRAME);
-    putcbyte(c, expr->u.functionDef.locals.count + 2);
-    code_statement(c, expr->u.functionDef.body);
-    putcbyte(c, OP_RETURN);
 }
 
 /* code_if - generate code for an 'if' statement */
@@ -288,12 +284,7 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     switch (expr->nodeType) {
     case NodeTypeGlobalSymbolRef:
         putcbyte(c, OP_LIT);
-        if (expr->u.symbolRef.symbol->storageClass == SC_HWVARIABLE)
-            putclong(c, expr->u.symbolRef.symbol->value);
-        else {
-            // the value is the first field of the symbol structure
-            putclong(c, (VMVALUE)expr->u.symbolRef.symbol);
-        }
+        putclong(c, (VMVALUE)expr->u.symbolRef.symbol);
         *pv = VT_LVALUE;
         break;
     case NodeTypeLocalSymbolRef:
@@ -506,10 +497,14 @@ static void chklvalue(ParseContext *c, PVAL *pv)
         ParseError(c,"expecting an lvalue");
 }
 
+static VMWORD rd_cword(ParseContext *c, VMUVALUE off);
+static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v);
+static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
+
 /* codeaddr - get the current code address (actually, offset) */
 static int codeaddr(ParseContext *c)
 {
-    return (int)(c->codeFree - c->codeBuf);
+    return (int)(c->codeFree - c->codeBase);
 }
 
 /* putcbyte - put a code byte into the code buffer */
@@ -528,30 +523,20 @@ static int putcword(ParseContext *c, VMWORD v)
     int addr = codeaddr(c);
     if (c->codeFree + sizeof(VMWORD) > c->codeTop)
         Abort(c, "insufficient memory");
-    wr_cword(c, c->codeFree - c->codeBuf, v);
+    wr_cword(c, c->codeFree - c->codeBase, v);
     c->codeFree += sizeof(VMWORD);
     return addr;
 }
 
-/* rd_cword - get a code word from the code buffer */
-static VMWORD rd_cword(ParseContext *c, VMUVALUE off)
+/* putclong - put a code word into the code buffer */
+static int putclong(ParseContext *c, VMVALUE v)
 {
-    int cnt = sizeof(VMWORD);
-    VMWORD v = 0;
-    while (--cnt >= 0)
-        v = (v << 8) | c->codeBuf[off++];
-    return v;
-}
-
-/* wr_cword - put a code word into the code buffer */
-static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v)
-{
-    uint8_t *p = &c->codeBuf[off] + sizeof(VMWORD);
-    int cnt = sizeof(VMWORD);
-    while (--cnt >= 0) {
-        *--p = v;
-        v >>= 8;
-    }
+    int addr = codeaddr(c);
+    if (c->codeFree + sizeof(VMVALUE) > c->codeTop)
+        Abort(c, "insufficient memory");
+    wr_clong(c, c->codeFree - c->codeBase, v);
+    c->codeFree += sizeof(VMVALUE);
+    return addr;
 }
 
 /* fixupbranch - fixup a branch reference chain */
@@ -565,21 +550,31 @@ static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val)
     }
 }
 
-/* putclong - put a code word into the code buffer */
-static int putclong(ParseContext *c, VMVALUE v)
+/* rd_cword - get a code word from the code buffer */
+static VMWORD rd_cword(ParseContext *c, VMUVALUE off)
 {
-    int addr = codeaddr(c);
-    if (c->codeFree + sizeof(VMVALUE) > c->codeTop)
-        Abort(c, "insufficient memory");
-    wr_clong(c, c->codeFree - c->codeBuf, v);
-    c->codeFree += sizeof(VMVALUE);
-    return addr;
+    int cnt = sizeof(VMWORD);
+    VMWORD v = 0;
+    while (--cnt >= 0)
+        v = (v << 8) | c->codeBase[off++];
+    return v;
+}
+
+/* wr_cword - put a code word into the code buffer */
+static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v)
+{
+    uint8_t *p = &c->codeBase[off] + sizeof(VMWORD);
+    int cnt = sizeof(VMWORD);
+    while (--cnt >= 0) {
+        *--p = v;
+        v >>= 8;
+    }
 }
 
 /* wr_clong - put a code word into the code buffer */
 static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v)
 {
-    uint8_t *p = &c->codeBuf[off] + sizeof(VMVALUE);
+    uint8_t *p = &c->codeBase[off] + sizeof(VMVALUE);
     int cnt = sizeof(VMVALUE);
     while (--cnt >= 0) {
         *--p = v;

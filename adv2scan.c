@@ -30,6 +30,7 @@ static struct {
 {   "break",    T_BREAK     },
 {   "return",   T_RETURN    },
 {   "object",   T_OBJECT    },
+{   "property", T_PROPERTY  },
 {   "method",   T_METHOD    },
 {   "shared",   T_SHARED    },
 {   "super",    T_SUPER     },
@@ -255,7 +256,7 @@ again:
     /* check the next character */
     switch (ch) {
     case EOF:
-        tkn = T_EOL;
+        tkn = T_EOF;
         break;
     case '"':
         tkn = StringToken(c);

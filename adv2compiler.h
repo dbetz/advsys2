@@ -11,12 +11,17 @@
 #include <setjmp.h>
 #include "adv2types.h"
 #include "adv2image.h"
-#include "adv2symbols.h"
+
+#define K               1024
 
 /* program limits */
 #define MAXLINE         128
 #define MAXTOKEN        32
-#define MAXCODE         65536
+#define MAXOBJECTS      (4*K)
+#define MAXFUNCTIONS    (4*K)
+#define MAXCODE         (32*K)
+#define MAXDATA         (64*K)
+#define MAXSTRING       (128*K)
 
 /* forward type declarations */
 typedef struct ParseTreeNode ParseTreeNode;
@@ -38,6 +43,7 @@ enum {
     T_BREAK,
     T_RETURN,
     T_OBJECT,
+    T_PROPERTY,
     T_METHOD,
     T_SHARED,
     T_SUPER,
@@ -73,7 +79,7 @@ enum {
 
 /* block type */
 typedef enum {
-    BLOCK_FOR,
+    BLOCK_FOR = 1,
     BLOCK_WHILE,
     BLOCK_DO
 } BlockType;
@@ -87,6 +93,39 @@ struct Block {
     int nxt;
     int end;
     Block *next;
+};
+
+/* storage class ids */
+typedef enum {
+    SC_CONSTANT = 1,
+    SC_VARIABLE,
+    SC_OBJECT,
+    SC_FUNCTION
+} StorageClass;
+
+/* forward type declarations */
+typedef struct Symbol Symbol;
+
+/* symbol table */
+typedef struct {
+    Symbol *head;
+    Symbol **pTail;
+    int count;
+} SymbolTable;
+
+/* symbol structure */
+struct Symbol {
+    Symbol *next;
+    StorageClass storageClass;
+    VMVALUE value;
+    char name[1];
+};
+
+/* string structure */
+typedef struct String String;
+struct String {
+    String *next;
+    char data[1];
 };
 
 typedef struct IncludedFile IncludedFile;
@@ -113,24 +152,36 @@ struct IncludedFile {
 
 /* parse context */
 typedef struct {
-    jmp_buf errorTarget;            /* error target */
-    ParseFile *currentFile;         /* scan - current input file */
-    IncludedFile *includedFiles;    /* scan - list of files that have already been included */
-    IncludedFile *currentInclude;   /* scan - file currently being included */
-    char lineBuf[MAXLINE];          /* scan - current input line */
-    char *linePtr;                  /* scan - pointer to the current character */
-    int savedToken;                 /* scan - lookahead token */
-    int tokenOffset;                /* scan - offset to the start of the current token */
-    char token[MAXTOKEN];           /* scan - current token string */
-    VMVALUE value;                  /* scan - current token integer value */
-    int inComment;                  /* scan - inside of a slash/star comment */
-    SymbolTable globals;            /* parse - global symbol table */
-    String *strings;                /* parse - string constants */
-    ParseTreeNode *function;        /* parse - current function being parsed */
-    Block *block;                   /* generate - current loop block */
-    uint8_t codeBuf[MAXCODE];       /* code buffer */
-    uint8_t *codeFree;              /* next available code location */
-    uint8_t *codeTop;               /* top of code buffer */
+    jmp_buf errorTarget;                            /* error target */
+    ParseFile *currentFile;                         /* scan - current input file */
+    IncludedFile *includedFiles;                    /* scan - list of files that have already been included */
+    IncludedFile *currentInclude;                   /* scan - file currently being included */
+    char lineBuf[MAXLINE];                          /* scan - current input line */
+    char *linePtr;                                  /* scan - pointer to the current character */
+    int savedToken;                                 /* scan - lookahead token */
+    int tokenOffset;                                /* scan - offset to the start of the current token */
+    char token[MAXTOKEN];                           /* scan - current token string */
+    VMVALUE value;                                  /* scan - current token integer value */
+    int inComment;                                  /* scan - inside of a slash/star comment */
+    SymbolTable globals;                            /* parse - global symbol table */
+    String *strings;                                /* parse - string constants */
+    ParseTreeNode *function;                        /* parse - current function being parsed */
+    Block *block;                                   /* generate - current loop block */
+    unsigned int objectTable[MAXOBJECTS + 1];       /* object table (offsets into data space) */
+    int objectCount;                                /* object count */
+    unsigned int functionTable[MAXFUNCTIONS + 1];   /* function table (offsets into code space) */
+    int functionCount;                              /* function count */
+    int propertyCount;                              /* property count */
+    uint8_t codeBuf[MAXCODE];                       /* code buffer */
+    uint8_t *codeBase;                              /* base address of function being compiled */
+    uint8_t *codeFree;                              /* next available code location */
+    uint8_t *codeTop;                               /* top of code buffer */
+    uint8_t dataBuf[MAXDATA];                       /* data buffer */
+    uint8_t *dataFree;                              /* next available data location */
+    uint8_t *dataTop;                               /* top of data buffer */
+    uint8_t stringBuf[MAXSTRING];                   /* string buffer */
+    uint8_t *stringFree;                            /* next available string location */
+    uint8_t *stringTop;                             /* top of string buffer */
 } ParseContext;
 
 /* partial value type codes */
@@ -285,13 +336,20 @@ struct ParseTreeNode {
 };
 
 /* adv2com.c */
+int AddObject(ParseContext *c, const char *name);
+int FindObject(ParseContext *c, const char *name);
+void InitSymbolTable(SymbolTable *table);
+Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
+Symbol *AddSymbol(ParseContext *c, SymbolTable *table, const char *name, StorageClass storageClass, int value);
+Symbol *FindSymbol(SymbolTable *table, const char *name);
+void PrintSymbols(SymbolTable *table, char *tag, int indent);
 void Abort(ParseContext *c, const char *fmt, ...);
-
 String *AddString(ParseContext *c, char *value);
 void *LocalAlloc(ParseContext *c, size_t size);
 
 /* adv2parse.c */
-ParseTreeNode *ParseFunction(ParseContext *c);
+void ParseDeclarations(ParseContext *c);
+int IsConstant(Symbol *symbol);
 
 /* adv2scan.c */
 void InitScan(ParseContext *c);
@@ -307,16 +365,8 @@ void UngetC(ParseContext *c);
 int GetLine(ParseContext *c);
 void ParseError(ParseContext *c, char *fmt, ...);
 
-/* adv2symbols.c */
-void InitSymbolTable(SymbolTable *table);
-Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
-Symbol *AddArgument(ParseContext *c, const char *name, StorageClass storageClass, int value);
-Symbol *AddLocal(ParseContext *c, const char *name, StorageClass storageClass, int value);
-Symbol *FindSymbol(SymbolTable *table, const char *name);
-int IsConstant(Symbol *symbol);
-
-/* adv2generate.c */
-void code_functiondef(ParseContext *c, ParseTreeNode *expr);
+/* adv2gen.c */
+uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength);
 
 #endif
 

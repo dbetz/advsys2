@@ -13,7 +13,7 @@
 #include "adv2vm.h"
 #include "adv2vmdebug.h"
 
-#define DEBUG
+//#define DEBUG
 
 /* interpreter state structure */
 typedef struct {
@@ -62,17 +62,18 @@ int Execute(uint8_t *main)
     int cnt;
 
     /* allocate the interpreter state */
-    if (!(i = (Interpreter *)malloc(sizeof(Interpreter) + MIN_STACK_SIZE)))
+    if (!(i = (Interpreter *)malloc(sizeof(Interpreter) + MAXSTACK)))
         return VMFALSE;
 
 	/* setup the new image */
     i->stack = (VMVALUE *)((uint8_t *)i + sizeof(Interpreter));
-    i->stackTop = (VMVALUE *)((uint8_t *)i->stack + MIN_STACK_SIZE);
+    i->stackTop = (VMVALUE *)((uint8_t *)i->stack + MAXSTACK);
 
     /* initialize */    
     i->pc = main;
     i->sp = i->fp = i->stackTop;
     
+    /* dummy arguments for testing */
     CPush(i, 30);
     CPush(i, 20);
     CPush(i, 10);

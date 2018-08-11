@@ -10,7 +10,6 @@ adv2vmdebug.o
 COMHDRS = \
 adv2compiler.h \
 adv2image.h \
-adv2symbols.h \
 adv2types.h \
 adv2vmdebug.h
 

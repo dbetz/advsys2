@@ -7,19 +7,40 @@
 #ifndef __ADV2IMAGE_H__
 #define __ADV2IMAGE_H__
 
-#include <stdarg.h>
 #include "adv2types.h"
 
-/* string structure */
-typedef struct String String;
-struct String {
-    String *next;
-    char data[1];
-};
+/* end of a list */
+#define NIL         0
+
+/* flag indicating that a property is shared with its child objects */
+#define P_SHARED    0x80000000
 
 /* image header */
 typedef struct {
+    VMVALUE objectTableOffset;
+    VMVALUE nObjects;
+    VMVALUE functionTableOffset;
+    VMVALUE nFunctions;
+    VMVALUE codeOffset;
+    VMVALUE codeSize;
+    VMVALUE dataOffset;
+    VMVALUE dataSize;
+    VMVALUE stringOffset;
+    VMVALUE stringSize;
 } ImageHdr;
+
+/* property structure */
+typedef struct {
+    VMVALUE property;
+    VMVALUE value;
+} Property;
+
+/* object header */
+typedef struct {
+    VMVALUE class;
+    VMVALUE nProperties;
+    Property properties[1];
+} Object;
 
 /* stack frame format:
 
@@ -95,8 +116,5 @@ enum {
 
 /* prototypes */
 void InitImage(ImageHdr *image);
-void *AllocateImageSpace(ImageHdr *image, size_t size);
-VMVALUE StoreVector(ImageHdr *image, const VMVALUE *buf, size_t size);
-VMVALUE StoreBVector(ImageHdr *image, const uint8_t *buf, size_t size);
 
 #endif
