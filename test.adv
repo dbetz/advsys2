@@ -1,0 +1,21 @@
+(a, b, c)
+{
+    var d, e;
+    d = a + b;
+    e = 0;
+    if (b < c)
+        e = b + c;
+    else
+        e = b - c;
+    print d, e;
+    for (a = 0; a < 10; ++a) {
+        if (a > 10) break;
+        if (a < 0) continue;
+        e += a;
+    }
+    d = [a look 1, 2, 3];
+    e = [super look 1, 2, 3];
+    a.foo = 1;
+    b.foo = a.bar;
+    return d + e;
+}
