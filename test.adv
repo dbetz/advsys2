@@ -1,8 +1,10 @@
 var x, y, z;
 
-property p1, p2, p3;
+property p1, p2, p3, kitchen;
 
-object gag {
+object livingroom {
+north : kitchen;
+west : 2;
 p1 : method(q) { return q+2; };
 p4 : method(r) { return r*r; };
 }

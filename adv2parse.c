@@ -32,6 +32,7 @@ static ParseTreeNode *ParseBlock(ParseContext *c);
 static ParseTreeNode *ParseExprStatement(ParseContext *c);
 static ParseTreeNode *ParseEmpty(ParseContext *c);
 static ParseTreeNode *ParsePrint(ParseContext *c);
+static ParseTreeNode *ParseIntegerLiteralExpr(ParseContext *c);
 static ParseTreeNode *ParseExpr(ParseContext *c);
 static ParseTreeNode *ParseExpr1(ParseContext *c);
 static ParseTreeNode *ParseExpr2(ParseContext *c);
@@ -121,11 +122,7 @@ static void ParseConstantDef(ParseContext *c, char *name)
     ParseTreeNode *expr;
 
     /* get the constant value */
-    expr = ParseExpr(c);
-
-    /* make sure it's a constant */
-    if (!IsIntegerLit(expr))
-        ParseError(c, "expecting a constant expression");
+    expr = ParseIntegerLiteralExpr(c);
 
     /* add the symbol as a global */
     AddGlobal(c, name, SC_CONSTANT, expr->u.integerLit.value);
@@ -174,6 +171,7 @@ static void ParseObject(ParseContext *c, char *protoName)
 {
     VMVALUE proto = protoName ? FindObject(c, protoName) : NIL;
     char name[MAXTOKEN], propertyName[MAXTOKEN];
+    ParseTreeNode *node;
     int tkn;
     
     /* get the name of the object being defined */
@@ -192,7 +190,6 @@ static void ParseObject(ParseContext *c, char *protoName)
         strcpy(propertyName, c->token);
         FRequire(c, ':');
         if ((tkn = GetToken(c)) == T_METHOD) {
-            ParseTreeNode *node;
             uint8_t *code;
             int codeLength;
             node = ParseMethod(c);
@@ -205,6 +202,7 @@ static void ParseObject(ParseContext *c, char *protoName)
         }
         else {
             SaveToken(c, tkn);
+            node = ParseIntegerLiteralExpr(c);
         }
         FRequire(c, ';');
     }
@@ -286,73 +284,6 @@ void do_property(int flags)
         setprop(name,flags,value);
     }
     require(tkn,T_CLOSE);
-}
-
-/* do_method - handle <METHOD (FUN ...) ... > statement */
-void do_method(void)
-{
-    int tkn,name,tcnt;
-
-    /* get the property name */
-    frequire(T_OPEN);
-    frequire(T_IDENTIFIER);
-printf("[ method: %s ]\n",t_token);
-
-    /* create a new property */
-    name = penter(t_token);
-
-    /* allocate a new (anonymous) action */
-    if (acnt < AMAX)
-        ++acnt;
-    else
-        error("too many actions");
-
-    /* store the action as the value of the property */
-    setprop(name,P_CLASS,acnt);
-
-    /* initialize the action */
-    curact = atable[acnt] = dalloc(A_SIZE);
-    putword(curact+A_VERBS,NIL);
-    putword(curact+A_PREPOSITIONS,NIL);
-    arguments = temporaries = NULL;
-    tcnt = 0;
-
-    /* enter the "self" argument */
-    addargument(&arguments,"self");
-    addargument(&arguments,"(dummy)");
-
-    /* get the argument list */
-    while ((tkn = token()) != T_CLOSE) {
-        require(tkn,T_IDENTIFIER);
-        if (match("&aux"))
-            break;
-        addargument(&arguments,t_token);
-    }
-    
-    /* check for temporary variable definitions */
-    if (tkn == T_IDENTIFIER)
-        while ((tkn = token()) != T_CLOSE) {
-            require(tkn,T_IDENTIFIER);
-            addargument(&temporaries,t_token);
-            tcnt++;
-        }
-
-    /* store the code address */
-    putword(curact+A_CODE,cptr);
-
-    /* allocate space for temporaries */
-    if (temporaries) {
-        putcbyte(OP_TSPACE);
-        putcbyte(tcnt);
-    }
-
-    /* compile the code */
-    do_code(NULL);
-
-    /* free the argument and temporary variable symbol tables */
-    freelist(arguments);
-    freelist(temporaries);
-    arguments = temporaries = NULL;
 }
 
 /* setprop - set the value of a property */
@@ -691,6 +622,15 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
         pNext = &op->next;
     }
         
+    return node;
+}
+
+/* ParseIntegerLiteralExpr - parse an integer literal expression */
+static ParseTreeNode *ParseIntegerLiteralExpr(ParseContext *c)
+{
+    ParseTreeNode *node = ParseExpr(c);
+    if (!IsIntegerLit(node))
+        ParseError(c, "expecting a constant expression");
     return node;
 }
 
@@ -1263,14 +1203,14 @@ static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name)
     Symbol *symbol;
 
     /* handle local variables within a function or subroutine */
-    if ((symbol = FindSymbol(&c->function->u.functionDef.locals, name)) != NULL) {
+    if (c->function && (symbol = FindSymbol(&c->function->u.functionDef.locals, name)) != NULL) {
         node->nodeType = NodeTypeLocalSymbolRef;
         node->u.symbolRef.symbol = symbol;
         node->u.symbolRef.offset = symbol->value;
     }
 
     /* handle function arguments */
-    else if ((symbol = FindSymbol(&c->function->u.functionDef.arguments, name)) != NULL) {
+    else if (c->function && (symbol = FindSymbol(&c->function->u.functionDef.arguments, name)) != NULL) {
         node->nodeType = NodeTypeArgumentRef;
         node->u.symbolRef.symbol = symbol;
         node->u.symbolRef.offset = symbol->value;
@@ -1344,6 +1284,7 @@ static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTr
     **ppNextEntry = entry;
     *ppNextEntry = &entry->next;
 }
+
 /* IsConstant - check to see if the value of a symbol is a constant */
 int IsConstant(Symbol *symbol)
 {
