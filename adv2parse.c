@@ -375,6 +375,9 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
     /* parse the function body */
     node->u.functionDef.body = ParseBlock(c);
     
+    /* not compiling a function anymore */
+    c->function = NULL;
+    
     return node;
 }
 
