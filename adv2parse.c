@@ -56,6 +56,9 @@ static ParseTreeNode *MakeUnaryOpNode(ParseContext *c, int op, ParseTreeNode *ex
 static ParseTreeNode *MakeBinaryOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
 static ParseTreeNode *MakeAssignmentOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
 static ParseTreeNode *NewParseTreeNode(ParseContext *c, int type);
+static void InitLocalSymbolTable(LocalSymbolTable *table);
+static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset);
+static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
 static int IsIntegerLit(ParseTreeNode *node);
 
@@ -320,8 +323,8 @@ static ParseTreeNode *ParseFunction(ParseContext *c)
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
     c->function = node;
-    InitSymbolTable(&node->u.functionDef.arguments);
-    InitSymbolTable(&node->u.functionDef.locals);
+    InitLocalSymbolTable(&node->u.functionDef.arguments);
+    InitLocalSymbolTable(&node->u.functionDef.locals);
     c->block = NULL;
     
     return ParseFunctionBody(c, node, 0);
@@ -333,12 +336,12 @@ static ParseTreeNode *ParseMethod(ParseContext *c)
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
     c->function = node;
-    InitSymbolTable(&node->u.functionDef.arguments);
-    InitSymbolTable(&node->u.functionDef.locals);
+    InitLocalSymbolTable(&node->u.functionDef.arguments);
+    InitLocalSymbolTable(&node->u.functionDef.locals);
     c->block = NULL;
     
-    AddSymbol(c, &node->u.functionDef.arguments, "self", SC_VARIABLE, 0);
-    AddSymbol(c, &node->u.functionDef.arguments, "(dummy)", SC_VARIABLE, 1);
+    AddLocalSymbol(c, &node->u.functionDef.arguments, "self", 0);
+    AddLocalSymbol(c, &node->u.functionDef.arguments, "(dummy)", 1);
     
     return ParseFunctionBody(c, node, 2);
 }
@@ -355,7 +358,7 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
         SaveToken(c, tkn);
         do {
             FRequire(c, T_IDENTIFIER);
-            AddSymbol(c, &node->u.functionDef.arguments, c->token, SC_VARIABLE, offset);
+            AddLocalSymbol(c, &node->u.functionDef.arguments, c->token, offset);
             ++offset;
         } while ((tkn = GetToken(c)) == ',');
     }
@@ -365,7 +368,7 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
     while ((tkn = GetToken(c)) == T_VAR) {
         do {
             FRequire(c, T_IDENTIFIER);
-            AddSymbol(c, &node->u.functionDef.locals, c->token, SC_VARIABLE, localOffset);
+            AddLocalSymbol(c, &node->u.functionDef.locals, c->token, localOffset);
             ++localOffset;
         } while ((tkn = GetToken(c)) == ',');
         Require(c, tkn, ';');
@@ -1203,24 +1206,23 @@ static ParseTreeNode *ParseSimplePrimary(ParseContext *c)
 static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeGlobalSymbolRef);
+    LocalSymbol *localSymbol;
     Symbol *symbol;
 
     /* handle local variables within a function or subroutine */
-    if (c->function && (symbol = FindSymbol(&c->function->u.functionDef.locals, name)) != NULL) {
+    if (c->function && (localSymbol = FindLocalSymbol(&c->function->u.functionDef.locals, name)) != NULL) {
         node->nodeType = NodeTypeLocalSymbolRef;
-        node->u.symbolRef.symbol = symbol;
-        node->u.symbolRef.offset = symbol->value;
+        node->u.localSymbolRef.symbol = localSymbol;
     }
 
     /* handle function arguments */
-    else if (c->function && (symbol = FindSymbol(&c->function->u.functionDef.arguments, name)) != NULL) {
+    else if (c->function && (localSymbol = FindLocalSymbol(&c->function->u.functionDef.arguments, name)) != NULL) {
         node->nodeType = NodeTypeArgumentRef;
-        node->u.symbolRef.symbol = symbol;
-        node->u.symbolRef.offset = symbol->value;
+        node->u.localSymbolRef.symbol = localSymbol;
     }
 
     /* handle global symbols */
-    else if ((symbol = FindSymbol(&c->globals, c->token)) != NULL) {
+    else if ((symbol = FindSymbol(c, c->token)) != NULL) {
         if (IsConstant(symbol)) {
             node->nodeType = NodeTypeIntegerLit;
             node->u.integerLit.value = symbol->value;
@@ -1286,6 +1288,58 @@ static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTr
     entry->next = NULL;
     **ppNextEntry = entry;
     *ppNextEntry = &entry->next;
+}
+
+/* InitLocalSymbolTable - initialize a local symbol table */
+static void InitLocalSymbolTable(LocalSymbolTable *table)
+{
+    table->head = NULL;
+    table->pTail = &table->head;
+    table->count = 0;
+}
+
+/* AddLocalSymbol - add a symbol to a local symbol table */
+static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset)
+{
+    size_t size = sizeof(LocalSymbol) + strlen(name);
+    LocalSymbol *sym;
+    
+    /* allocate the symbol structure */
+    sym = (LocalSymbol *)LocalAlloc(c, size);
+    memset(sym, 0, sizeof(LocalSymbol));
+    strcpy(sym->name, name);
+    sym->offset = offset;
+
+    /* add it to the symbol table */
+    *table->pTail = sym;
+    table->pTail = &sym->next;
+    ++table->count;
+    
+    /* return the symbol */
+    return sym;
+}
+
+/* FindLocalSymbol - find a symbol in a local symbol table */
+static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name)
+{
+    LocalSymbol *sym = table->head;
+    while (sym) {
+        if (strcmp(name, sym->name) == 0)
+            return sym;
+        sym = sym->next;
+    }
+    return NULL;
+}
+
+/* PrintLocalSymbols - print a symbol table */
+void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent)
+{
+    LocalSymbol *sym;
+    if ((sym = table->head) != NULL) {
+	    printf("%*s%s\n", indent, "", tag);
+        for (; sym != NULL; sym = sym->next)
+            printf("%*s%s\t%d\n", indent + 2, "", sym->name, sym->offset);
+    }
 }
 
 /* IsConstant - check to see if the value of a symbol is a constant */

@@ -24,17 +24,19 @@ static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
-static void PushBlock(ParseContext *c, Block *block, BlockType type);
-static void PopBlock(ParseContext *c);
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_rvalue(ParseContext *c, ParseTreeNode *expr);
 static void rvalue(ParseContext *c, PVAL *pv);
 static void chklvalue(ParseContext *c, PVAL *pv);
+static void PushBlock(ParseContext *c, Block *block, BlockType type);
+static void PopBlock(ParseContext *c);
+
 static int codeaddr(ParseContext *c);
 static int putcbyte(ParseContext *c, int v);
 static int putcword(ParseContext *c, VMWORD v);
 static int putclong(ParseContext *c, VMVALUE v);
 static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
+static void fixup(ParseContext *c, VMUVALUE chn, VMUVALUE val);
 
 /* code_functiondef - generate code for a function definition */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
@@ -289,12 +291,12 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         break;
     case NodeTypeLocalSymbolRef:
         putcbyte(c, OP_LADDR);
-        putcbyte(c, -expr->u.symbolRef.offset - 3);
+        putcbyte(c, -expr->u.localSymbolRef.symbol->offset - 3);
         *pv = VT_LVALUE;
         break;
     case NodeTypeArgumentRef:
         putcbyte(c, OP_LADDR);
-        putcbyte(c, expr->u.symbolRef.offset);
+        putcbyte(c, expr->u.localSymbolRef.symbol->offset);
         *pv = VT_LVALUE;
         break;
     case NodeTypeStringLit:
@@ -497,8 +499,24 @@ static void chklvalue(ParseContext *c, PVAL *pv)
         ParseError(c,"expecting an lvalue");
 }
 
+/* PushBlock - push a block on the block stack */
+static void PushBlock(ParseContext *c, Block *block, BlockType type)
+{
+    memset(block, 0, sizeof(Block));
+    block->type = type;
+    block->next = c->block;
+    c->block = block;
+}
+
+/* PopBlock - pop a block off the block stack */
+static void PopBlock(ParseContext *c)
+{
+    c->block = c->block->next;
+}
+
 static VMWORD rd_cword(ParseContext *c, VMUVALUE off);
 static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v);
+static VMVALUE rd_clong(ParseContext *c, VMUVALUE off);
 static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 
 /* codeaddr - get the current code address (actually, offset) */
@@ -550,6 +568,16 @@ static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val)
     }
 }
 
+/* fixup - fixup a reference chain */
+void fixup(ParseContext *c, VMUVALUE chn, VMUVALUE val)
+{
+    while (chn != 0) {
+        int nxt = rd_clong(c, chn);
+        wr_clong(c, chn, val);
+        chn = nxt;
+    }
+}
+
 /* rd_cword - get a code word from the code buffer */
 static VMWORD rd_cword(ParseContext *c, VMUVALUE off)
 {
@@ -571,6 +599,16 @@ static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v)
     }
 }
 
+/* rd_clong - get a code word from the code buffer */
+static VMVALUE rd_clong(ParseContext *c, VMUVALUE off)
+{
+    int cnt = sizeof(VMVALUE);
+    VMVALUE v = 0;
+    while (--cnt >= 0)
+        v = (v << 8) | c->codeBuf[off++];
+    return v;
+}
+
 /* wr_clong - put a code word into the code buffer */
 static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v)
 {
@@ -580,19 +618,4 @@ static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v)
         *--p = v;
         v >>= 8;
     }
-}
-
-/* PushBlock - push a block on the block stack */
-static void PushBlock(ParseContext *c, Block *block, BlockType type)
-{
-    memset(block, 0, sizeof(Block));
-    block->type = type;
-    block->next = c->block;
-    c->block = block;
-}
-
-/* PopBlock - pop a block off the block stack */
-static void PopBlock(ParseContext *c)
-{
-    c->block = c->block->next;
 }

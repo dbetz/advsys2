@@ -19,8 +19,8 @@ void PrintNode(ParseTreeNode *node, int indent)
     switch (node->nodeType) {
     case NodeTypeFunctionDef:
         printf("FunctionDef\n");
-        PrintSymbols(&node->u.functionDef.arguments, "arguments", indent + 2);
-        PrintSymbols(&node->u.functionDef.locals, "locals", indent + 2);
+        PrintLocalSymbols(&node->u.functionDef.arguments, "arguments", indent + 2);
+        PrintLocalSymbols(&node->u.functionDef.locals, "locals", indent + 2);
         PrintNode(node->u.functionDef.body, indent + 2);
         break;
     case NodeTypeIf:
@@ -88,10 +88,10 @@ void PrintNode(ParseTreeNode *node, int indent)
         printf("GlobalSymbolRef: %s\n", node->u.symbolRef.symbol->name);
         break;
     case NodeTypeLocalSymbolRef:
-        printf("LocalSymbolRef: %s\n", node->u.symbolRef.symbol->name);
+        printf("LocalSymbolRef: %s\n", node->u.localSymbolRef.symbol->name);
         break;
     case NodeTypeArgumentRef:
-        printf("NodeTypeArgumentRef: %s\n", node->u.symbolRef.symbol->name);
+        printf("NodeTypeArgumentRef: %s\n", node->u.localSymbolRef.symbol->name);
         break;
     case NodeTypeStringLit:
 		printf("StringLit: '%s'\n",node->u.stringLit.string->data);

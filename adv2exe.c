@@ -18,6 +18,9 @@
 /* interpreter state structure */
 typedef struct {
     jmp_buf errorTarget;
+    uint8_t *dataBase;
+    uint8_t *codeBase;
+    uint8_t *stringBase;
     VMVALUE *stack;
     VMVALUE *stackTop;
     uint8_t *pc;

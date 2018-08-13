@@ -17,16 +17,13 @@
 
 /* image header */
 typedef struct {
-    VMVALUE objectTableOffset;
-    VMVALUE nObjects;
-    VMVALUE functionTableOffset;
-    VMVALUE nFunctions;
-    VMVALUE codeOffset;
-    VMVALUE codeSize;
     VMVALUE dataOffset;
     VMVALUE dataSize;
+    VMVALUE codeOffset;
+    VMVALUE codeSize;
     VMVALUE stringOffset;
     VMVALUE stringSize;
+    VMVALUE mainFunction;
 } ImageHdr;
 
 /* property structure */

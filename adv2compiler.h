@@ -21,7 +21,7 @@
 #define MAXFUNCTIONS    (4*K)
 #define MAXCODE         (32*K)
 #define MAXDATA         (64*K)
-#define MAXSTRING       (128*K)
+#define MAXSTRING       (256*K)
 
 /* forward type declarations */
 typedef struct ParseTreeNode ParseTreeNode;
@@ -105,19 +105,51 @@ typedef enum {
 
 /* forward type declarations */
 typedef struct Symbol Symbol;
+typedef struct Fixup Fixup;
 
 /* symbol table */
 typedef struct {
     Symbol *head;
     Symbol **pTail;
-    int count;
 } SymbolTable;
 
 /* symbol structure */
 struct Symbol {
     Symbol *next;
     StorageClass storageClass;
+    Fixup *fixups;
+    int valueDefined;
     VMVALUE value;
+    char name[1];
+};
+
+/* fixup types */
+typedef enum {
+    FT_DATA = 1,
+    FT_CODE
+} FixupType;
+
+/* fixup structure */
+struct Fixup {
+    Fixup *next;
+    FixupType type;
+    VMVALUE offset;
+};
+
+/* forward type declarations */
+typedef struct LocalSymbol LocalSymbol;
+
+/* local symbol table */
+typedef struct {
+    LocalSymbol *head;
+    LocalSymbol **pTail;
+    int count;
+} LocalSymbolTable;
+
+/* local symbol structure */
+struct LocalSymbol {
+    LocalSymbol *next;
+    int offset;
     char name[1];
 };
 
@@ -248,8 +280,8 @@ struct ParseTreeNode {
     int nodeType;
     union {
         struct {
-            SymbolTable arguments;
-            SymbolTable locals;
+            LocalSymbolTable arguments;
+            LocalSymbolTable locals;
             ParseTreeNode *body;
         } functionDef;
         struct {
@@ -284,10 +316,11 @@ struct ParseTreeNode {
             PrintOp *ops;
         } printStatement;
         struct {
-            int valueType;
             Symbol *symbol;
-            int offset;
         } symbolRef;
+        struct {
+            LocalSymbol *symbol;
+        } localSymbolRef;
         struct {
             String *string;
         } stringLit;
@@ -338,17 +371,18 @@ struct ParseTreeNode {
 /* adv2com.c */
 int AddObject(ParseContext *c, const char *name);
 int FindObject(ParseContext *c, const char *name);
-void InitSymbolTable(SymbolTable *table);
+void InitSymbolTable(ParseContext *c);
 Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
-Symbol *AddSymbol(ParseContext *c, SymbolTable *table, const char *name, StorageClass storageClass, int value);
-Symbol *FindSymbol(SymbolTable *table, const char *name);
-void PrintSymbols(SymbolTable *table, char *tag, int indent);
+Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, int value);
+Symbol *FindSymbol(ParseContext *c, const char *name);
+void PrintSymbols(ParseContext *c);
 void Abort(ParseContext *c, const char *fmt, ...);
 String *AddString(ParseContext *c, char *value);
 void *LocalAlloc(ParseContext *c, size_t size);
 
 /* adv2parse.c */
 void ParseDeclarations(ParseContext *c);
+void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent);
 int IsConstant(Symbol *symbol);
 
 /* adv2scan.c */

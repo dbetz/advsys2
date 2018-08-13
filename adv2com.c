@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     
     /* initialize the parse context */
     memset(c, 0, sizeof(ParseContext));
-    InitSymbolTable(&c->globals);
+    InitSymbolTable(c);
     InitScan(c);
     
     /* initialize the memory spaces */
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     
     ParseDeclarations(c);
     
-    PrintSymbols(&c->globals, "globals", 0);
+    PrintSymbols(c);
     
     //Execute(c->codeBuf);
 
@@ -57,11 +57,11 @@ Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, 
     Symbol *sym;
     
     /* check to see if the symbol is already defined */
-    if ((sym = FindSymbol(&c->globals, name)) != NULL)
+    if ((sym = FindSymbol(c, name)) != NULL)
         return sym;
     
     /* add the symbol */
-    return AddSymbol(c, &c->globals, name, storageClass, value);
+    return AddSymbol(c, name, storageClass, value);
 }
 
 /* AddObject - enter an object into the symbol table */
@@ -69,14 +69,14 @@ int AddObject(ParseContext *c, const char *name)
 {
     Symbol *sym;
 
-    if ((sym = FindSymbol(&c->globals, name)) != NULL) {
+    if ((sym = FindSymbol(c, name)) != NULL) {
         if (sym->storageClass != SC_OBJECT)
             ParseError(c, "not an object");
         return sym->value;
     }
     
     if (c->objectCount < MAXOBJECTS) {
-        AddSymbol(c, &c->globals, name, SC_OBJECT, ++c->objectCount);
+        AddSymbol(c, name, SC_OBJECT, ++c->objectCount);
         c->objectTable[c->objectCount] = 0;
     }
     else
@@ -90,7 +90,7 @@ int FindObject(ParseContext *c, const char *name)
 {
     Symbol *sym;
 
-    if ((sym = FindSymbol(&c->globals, name)) != NULL) {
+    if ((sym = FindSymbol(c, name)) != NULL) {
         if (sym->storageClass != SC_OBJECT)
             ParseError(c, "not an object");
         if (sym->value == NIL)
@@ -104,39 +104,37 @@ int FindObject(ParseContext *c, const char *name)
 
 
 /* InitSymbolTable - initialize a symbol table */
-void InitSymbolTable(SymbolTable *table)
+void InitSymbolTable(ParseContext *c)
 {
-    table->head = NULL;
-    table->pTail = &table->head;
-    table->count = 0;
+    c->globals.head = NULL;
+    c->globals.pTail = &c->globals.head;
 }
 
 /* AddSymbol - add a symbol to a symbol table */
-Symbol *AddSymbol(ParseContext *c, SymbolTable *table, const char *name, StorageClass storageClass, int value)
+Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, int value)
 {
     size_t size = sizeof(Symbol) + strlen(name);
     Symbol *sym;
     
     /* allocate the symbol structure */
     sym = (Symbol *)LocalAlloc(c, size);
+    memset(sym, 0, sizeof(Symbol));
     strcpy(sym->name, name);
     sym->storageClass = storageClass;
     sym->value = value;
-    sym->next = NULL;
 
     /* add it to the symbol table */
-    *table->pTail = sym;
-    table->pTail = &sym->next;
-    ++table->count;
+    *c->globals.pTail = sym;
+    c->globals.pTail = &sym->next;
     
     /* return the symbol */
     return sym;
 }
 
 /* FindSymbol - find a symbol in a symbol table */
-Symbol *FindSymbol(SymbolTable *table, const char *name)
+Symbol *FindSymbol(ParseContext *c, const char *name)
 {
-    Symbol *sym = table->head;
+    Symbol *sym = c->globals.head;
     while (sym) {
         if (strcmp(name, sym->name) == 0)
             return sym;
@@ -146,14 +144,12 @@ Symbol *FindSymbol(SymbolTable *table, const char *name)
 }
 
 /* PrintSymbols - print a symbol table */
-void PrintSymbols(SymbolTable *table, char *tag, int indent)
+void PrintSymbols(ParseContext *c)
 {
     Symbol *sym;
-    if ((sym = table->head) != NULL) {
-	    printf("%*s%s\n", indent, "", tag);
-        for (; sym != NULL; sym = sym->next)
-            printf("%*s%s\t%d\t%d\n", indent + 2, "", sym->name, sym->storageClass, sym->value);
-    }
+    printf("Globals\n");
+    for (sym = c->globals.head; sym != NULL; sym = sym->next)
+        printf("  %s\t%d\t%d\n", sym->name, sym->storageClass, sym->value);
 }
 
 /* AddString - add a string to the string table */
