@@ -12,18 +12,41 @@
 #include <ctype.h>
 #include "adv2vm.h"
 
+static void Usage(void);
+
 int main(int argc, char *argv[])
 {
+    char *infile = NULL;
+    int debug = VMFALSE;
     int imageSize;
     ImageHdr *image;
     FILE *fp;
+    int i;
     
-    if (argc != 2) {
-        printf("usage: adv2int <file>\n");
-        return 1;
+    /* get the arguments */
+    for(i = 1; i < argc; ++i) {
+
+        /* handle switches */
+        if(argv[i][0] == '-') {
+            switch(argv[i][1]) {
+            case 'd':   // enable debug mode
+                debug = VMTRUE;
+                break;
+            default:
+                Usage();
+                break;
+            }
+        }
+
+        /* handle the input filename */
+        else {
+            if (infile)
+                Usage();
+            infile = argv[i];
+        }
     }
     
-    if (!(fp = fopen(argv[1], "rb"))) {
+    if (!(fp = fopen(infile, "rb"))) {
         printf("error: can't open '%s'\n", argv[1]);
         return 1;
     }
@@ -44,10 +67,15 @@ int main(int argc, char *argv[])
     
     fclose(fp);
     
-    Execute(image, VMFALSE);
+    Execute(image, debug);
     
     free(image);
     
     return 0;
 }
-
+  
+static void Usage(void)
+{
+    printf("usage: adv2int [ -d ] <file>\n");
+    exit(1);
+}

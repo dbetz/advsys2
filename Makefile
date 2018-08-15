@@ -27,6 +27,9 @@ all:	adv2com adv2int
 run:    adv2int test.dat
 	./adv2int test.dat
 
+debug:    adv2int test.dat
+	./adv2int -d test.dat
+
 %.dat:	%.adv adv2com
 	./adv2com $<
 	

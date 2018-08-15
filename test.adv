@@ -65,6 +65,7 @@ def zip(a, b, c)
 
 def main()
 {
+/*
     print "Hello, world!";
     print [obj1 p1 3];
     print [obj2 p1 5];
@@ -77,5 +78,6 @@ def main()
     print ++place.p0;
     print bar(foo(10));
     print bar(foo(10));
-//    print zip(10, 20, 30);
+*/
+    print zip(10, 20, 30);
 }
