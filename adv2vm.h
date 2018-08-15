@@ -9,7 +9,7 @@
 
 #include "adv2image.h"
 
-#define MAXSTACK    4096
+#define MAXSTACK    128
 
 /* prototypes from adv2exe.c */
 int Execute(ImageHdr *image, int debug);

@@ -17,8 +17,11 @@
 typedef struct {
     jmp_buf errorTarget;
     uint8_t *dataBase;
+    uint8_t *dataTop;
     uint8_t *codeBase;
+    uint8_t *codeTop;
     uint8_t *stringBase;
+    uint8_t *stringTop;
     VMVALUE *stack;
     VMVALUE *stackTop;
     uint8_t *pc;
@@ -46,6 +49,8 @@ typedef struct {
 #define Drop(i, n)      ((i)->sp += (n))
 
 /* prototypes for local functions */
+static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE property);
+static void DoSend(Interpreter *i);
 static void DoTrap(Interpreter *i, int op);
 static void StackOverflow(Interpreter *i);
 static void Abort(Interpreter *i, const char *fmt, ...);
@@ -66,8 +71,11 @@ int Execute(ImageHdr *image, int debug)
 
 	/* setup the new image */
 	i->dataBase = (uint8_t *)image + image->dataOffset;
+	i->dataTop = i->dataBase + image->dataSize;
 	i->codeBase = (uint8_t *)image + image->codeOffset;
+	i->codeTop = i->codeBase + image->codeSize;
 	i->stringBase = (uint8_t *)image + image->stringOffset;
+	i->stringTop = i->stringBase + image->stringSize;
     i->stack = (VMVALUE *)((uint8_t *)i + sizeof(Interpreter));
     i->stackTop = (VMVALUE *)((uint8_t *)i->stack + MAXSTACK);
 
@@ -273,6 +281,7 @@ int Execute(ImageHdr *image, int debug)
             DoTrap(i, VMCODEBYTE(i->pc++));
             break;
         case OP_SEND:
+            DoSend(i);
             break;
         case OP_CADDR:
             for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
@@ -293,6 +302,11 @@ int Execute(ImageHdr *image, int debug)
             i->tos = (VMVALUE)(i->stringBase + tmp);
             break;
         case OP_PADDR:
+            i->tos = GetPropertyAddr(i, *i->sp, i->tos);
+            Drop(i, 1);
+            break;
+        case OP_CLASS:
+            i->tos = (VMVALUE)(i->dataBase + ((ObjectHdr *)i->tos)->class);
             break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
@@ -301,44 +315,26 @@ int Execute(ImageHdr *image, int debug)
     }
 }
 
+static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
+{
+    ObjectHdr *hdr = (ObjectHdr *)object;
+    while (object) {
+        Property *property = (Property *)(hdr + 1);
+        int nProperties = hdr->nProperties;
+        while (--nProperties >= 0) {
+            if ((property->tag & ~P_SHARED) == tag)
+                return (VMVALUE)&property->value;
+            ++property;
+        }
+        object = hdr->class;
+        hdr = (ObjectHdr *)(i->dataBase + object);
+    }
+    return NIL;
+}
+
+static void DoSend(Interpreter *i)
+{
 #if 0
-
-/* getp - get the value of an object property */
-int getp(int obj,int prop)
-{
-    int p;
-
-    for (; obj; obj = getofield(obj,O_CLASS))
-        if ((p = findprop(obj,prop)) != 0)
-            return (getofield(obj,p));
-    return (NIL);
-}
-
-/* setp - set the value of an object property */
-int setp(int obj,int prop,int val)
-{
-    int p;
-
-    for (; obj; obj = getofield(obj,O_CLASS))
-        if ((p = findprop(obj,prop)) != 0)
-            return (putofield(obj,p,val));
-    return (NIL);
-}
-
-/* findprop - find a property */
-int findprop(int obj,int prop)
-{
-    int n,i,p;
-
-    n = getofield(obj,O_NPROPERTIES);
-    for (i = p = 0; i < n; i++, p += 4)
-        if ((getofield(obj,O_PROPERTIES+p) & 0x7FFF) == prop)
-            return (O_PROPERTIES+p+2);
-    return (NIL);
-}
-
-static void opSEND(void)
-{
     register int p2;
     *--sp = getboperand();
     *--sp = pc;
@@ -351,9 +347,17 @@ static void opSEND(void)
         *sp = NIL;
         opRETURN();
     }
-}
-
+#else
+    VMVALUE tmp, p;
+    ++i->pc; // skip over the argument count
+    tmp = i->tos;
+    i->tos = (VMVALUE)i->pc;
+    if (!(p = i->sp[1]))
+        p = i->sp[0];
+    p = GetPropertyAddr(i, p, tmp);
+    i->pc = i->codeBase + *(VMVALUE *)p;
 #endif
+}
 
 static void DoTrap(Interpreter *i, int op)
 {
@@ -404,19 +408,28 @@ static void Abort(Interpreter *i, const char *fmt, ...)
     longjmp(i->errorTarget, 1);
 }
 
+static void ShowOffset(Interpreter *i, VMVALUE value)
+{
+    uint8_t *p = (uint8_t *)value;
+    if (p >= i->dataBase && p < i->dataTop)
+        printf("(d:%d)", p - i->dataBase);
+    else if (p >= i->codeBase && p < i->codeTop)
+        printf("(c:%d-%x)", p - i->codeBase, p - i->codeBase);
+    else if (p >= i->stringBase && p < i->stringTop)
+        printf("(s:%d)", p - i->stringBase);
+}
+
 static void ShowStack(Interpreter *i)
 {
     VMVALUE *p;
     printf("%d", i->tos);
-    if (i->tos > 10000)
-        printf("(%x)", (uint8_t *)i->tos - i->codeBase);
+    ShowOffset(i, i->tos);
     if (i->sp < i->stackTop) {
         for (p = i->sp; p < i->stackTop; ++p) {
             if (p == i->fp)
                 printf(" <fp>");
             printf(" %d", *p);
-            if (*p > 10000)
-                printf("(%x)", (uint8_t *)*p - i->codeBase);
+            ShowOffset(i, *p);
         }
     }
     if (i->fp == i->stackTop)

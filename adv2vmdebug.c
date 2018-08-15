@@ -70,20 +70,21 @@ OTDEF OpcodeTable[] = {
 { OP_CADDR,     "CADDR",    FMT_LONG    },
 { OP_SADDR,     "SADDR",    FMT_LONG    },
 { OP_PADDR,     "PADDR",    FMT_NONE    },
+{ OP_CLASS,     "CLASS",    FMT_NONE    },
 { 0,            NULL,       0           }
 };
 
 /* DecodeFunction - decode the instructions in a function code object */
-void DecodeFunction(const uint8_t *code, int len)
+void DecodeFunction(const uint8_t *base, const uint8_t *code, int len)
 {
     const uint8_t *lc = code;
     const uint8_t *end = code + len;
     while (lc < end)
-        lc += DecodeInstruction(code, lc);
+        lc += DecodeInstruction(base, lc);
 }
 
 /* DecodeInstruction - decode a single bytecode instruction */
-int DecodeInstruction(const uint8_t *code, const uint8_t *lc)
+int DecodeInstruction(const uint8_t *base, const uint8_t *lc)
 {
     uint8_t opcode, bytes[sizeof(VMVALUE)];
     const OTDEF *op;
@@ -95,7 +96,7 @@ int DecodeInstruction(const uint8_t *code, const uint8_t *lc)
     opcode = VMCODEBYTE(lc);
 
     /* show the address */
-    printf("%04x %02x ", lc - code, opcode);
+    printf("%04x %02x ", lc - base, opcode);
     n = 1;
 
     /* display the operands */
@@ -146,7 +147,7 @@ int DecodeInstruction(const uint8_t *code, const uint8_t *lc)
                 printf("%s ", op->name);
                 for (i = 0; i < sizeof(VMWORD); ++i)
                     printf("%02x", bytes[i]);
-                printf(" # %04x\n", (lc + 1 + sizeof(VMWORD) + offset) - code);
+                printf(" # %04x\n", (lc + 1 + sizeof(VMWORD) + offset) - base);
                 n += sizeof(VMWORD);
                 break;
             }

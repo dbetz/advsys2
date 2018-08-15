@@ -148,7 +148,7 @@ static void ParseFunctionDef(ParseContext *c, char *name)
     
     code = code_functiondef(c, node, &codeLength);
     
-    DecodeFunction(code, codeLength);
+    DecodeFunction(c->codeBuf, code, codeLength);
 }
 
 /* ParseVar - parse the 'var' statement */
@@ -182,10 +182,14 @@ static void ParseObject(ParseContext *c, char *className)
     Property *property, *p;
     int tkn;
     
+    /* get the name of the object being defined */
+    FRequire(c, T_IDENTIFIER);
+    strcpy(name, c->token);
+    
     /* allocate space for an object header and initialize */
     if (c->dataFree + sizeof(ObjectHdr) > c->dataTop)
         ParseError(c, "insufficient data space");
-    AddGlobal(c, c->token, SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
+    c->currentObjectSymbol = AddGlobal(c, name, SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
     objectHdr = (ObjectHdr *)c->dataFree;
     c->dataFree += sizeof(ObjectHdr);
     objectHdr->nProperties = 0;
@@ -213,10 +217,6 @@ static void ParseObject(ParseContext *c, char *className)
         objectHdr->class = NIL;
     }
     
-    /* get the name of the object being defined */
-    FRequire(c, T_IDENTIFIER);
-    strcpy(name, c->token);
-    
     /* parse object properties */
     FRequire(c, '{');
     while ((tkn = GetToken(c)) != '}') {
@@ -235,7 +235,7 @@ static void ParseObject(ParseContext *c, char *className)
             node = ParseMethod(c);
             PrintNode(c, node, 0);
             code = code_functiondef(c, node, &codeLength);
-            DecodeFunction(code, codeLength);
+            DecodeFunction(c->codeBuf, code, codeLength);
             value = (VMVALUE)(code - c->codeBuf);
         }
         else {
@@ -262,6 +262,9 @@ static void ParseObject(ParseContext *c, char *className)
     
     /* move the free pointer past the new object */
     c->dataFree = (uint8_t *)property;
+    
+    /* not in an object definition anymore */
+    c->currentObjectSymbol = NULL;
 }
 
 /* ParseProperty - parse the 'property' statement */
@@ -280,7 +283,7 @@ static ParseTreeNode *ParseFunction(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
-    c->function = node;
+    c->currentFunction = node;
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
     c->block = NULL;
@@ -293,7 +296,7 @@ static ParseTreeNode *ParseMethod(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
-    c->function = node;
+    c->currentFunction = node;
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
     c->block = NULL;
@@ -337,7 +340,7 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
     node->u.functionDef.body = ParseBlock(c);
     
     /* not compiling a function anymore */
-    c->function = NULL;
+    c->currentFunction = NULL;
     
     return node;
 }
@@ -1112,10 +1115,17 @@ static ParseTreeNode *ParseSend(ParseContext *c)
     int tkn;
 
     /* parse the object and selector */
-    if ((tkn = GetToken(c)) == T_SUPER)
-        node->u.send.object = NULL;
+    if ((tkn = GetToken(c)) == T_SUPER) {
+        if (!c->currentObjectSymbol)
+            ParseError(c, "super outside of a method definition");
+        node->u.send.class = NewParseTreeNode(c, NodeTypeGlobalSymbolRef);
+        node->u.send.class->u.symbolRef.symbol = c->currentObjectSymbol;
+        node->u.send.object = NewParseTreeNode(c, NodeTypeArgumentRef);
+        node->u.send.object->u.localSymbolRef.symbol = FindLocalSymbol(&c->currentFunction->u.functionDef.arguments, "self");
+    }
     else {
         SaveToken(c, tkn);
+        node->u.send.class = NULL;
         node->u.send.object = ParseExpr(c);
     }
     node->u.send.selector = ParseSelector(c);
@@ -1205,13 +1215,13 @@ static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name)
     Symbol *symbol;
 
     /* handle local variables within a function */
-    if (c->function && (localSymbol = FindLocalSymbol(&c->function->u.functionDef.locals, name)) != NULL) {
+    if (c->currentFunction && (localSymbol = FindLocalSymbol(&c->currentFunction->u.functionDef.locals, name)) != NULL) {
         node->nodeType = NodeTypeLocalSymbolRef;
         node->u.localSymbolRef.symbol = localSymbol;
     }
 
     /* handle function arguments */
-    else if (c->function && (localSymbol = FindLocalSymbol(&c->function->u.functionDef.arguments, name)) != NULL) {
+    else if (c->currentFunction && (localSymbol = FindLocalSymbol(&c->currentFunction->u.functionDef.arguments, name)) != NULL) {
         node->nodeType = NodeTypeArgumentRef;
         node->u.localSymbolRef.symbol = localSymbol;
     }

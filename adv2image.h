@@ -102,6 +102,7 @@ fp -> arg 1
 #define OP_CADDR        0x2b    /* load the address of an object in code space */
 #define OP_SADDR        0x2c    /* load the address of an object in string space */
 #define OP_PADDR        0x2d    /* load the address of an object property */
+#define OP_CLASS        0x2e    /* load the class of an object */
 
 /* VM trap codes */
 enum {

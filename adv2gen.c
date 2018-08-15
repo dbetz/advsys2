@@ -477,13 +477,18 @@ static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     /* code each argument expression */
     code_arguments(c, expr->u.send.args);
 
-    /* code the object or 'super' */
-    if (expr->u.send.object)
-        code_rvalue(c, expr->u.send.object);
+    /* code the object from which to start searching for the method */
+    if (expr->u.send.class) {
+        code_rvalue(c, expr->u.send.class);
+        putcbyte(c, OP_CLASS);
+    }
     else {
         putcbyte(c, OP_SLIT);
-        putcbyte(c, 0);
+        putcbyte(c, NIL);
     }
+    
+    /* code the object receiving the message */
+    code_rvalue(c, expr->u.send.object);
     
     /* code the selector */
     code_rvalue(c, expr->u.send.selector);

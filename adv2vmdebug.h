@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-void DecodeFunction(const uint8_t *code, int len);
-int DecodeInstruction(const uint8_t *code, const uint8_t *lc);
+void DecodeFunction(const uint8_t *base, const uint8_t *code, int len);
+int DecodeInstruction(const uint8_t *base, const uint8_t *lc);
 
 #endif

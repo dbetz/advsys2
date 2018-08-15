@@ -197,7 +197,8 @@ typedef struct {
     int inComment;                                  /* scan - inside of a slash/star comment */
     SymbolTable globals;                            /* parse - global symbol table */
     String *strings;                                /* parse - string constants */
-    ParseTreeNode *function;                        /* parse - current function being parsed */
+    Symbol *currentObjectSymbol;                    /* parse - current object being parsed */
+    ParseTreeNode *currentFunction;                 /* parse - current function being parsed */
     Block *block;                                   /* generate - current loop block */
     int propertyCount;                              /* property count */
     uint8_t codeBuf[MAXCODE];                       /* code buffer */
@@ -349,6 +350,7 @@ struct ParseTreeNode {
             int argc;
         } functionCall;
         struct {
+            ParseTreeNode *class;
             ParseTreeNode *object;
             ParseTreeNode *selector;
             NodeListEntry *args;

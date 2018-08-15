@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     
     fclose(fp);
     
-    Execute(image, VMTRUE);
+    Execute(image, VMFALSE);
     
     free(image);
     
