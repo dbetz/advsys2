@@ -334,20 +334,6 @@ static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
 
 static void DoSend(Interpreter *i)
 {
-#if 0
-    register int p2;
-    *--sp = getboperand();
-    *--sp = pc;
-    *--sp = (int)(top - fp);
-    fp = sp;
-    p2 = ((p2 = fp[fp[2]+3]) ? getofield(p2,O_CLASS) : fp[fp[2]+2]);
-    if (p2 && (p2 = getp(p2,fp[fp[2]+1])))
-        pc = getafield(p2,A_CODE);
-    else {
-        *sp = NIL;
-        opRETURN();
-    }
-#else
     VMVALUE tmp, p;
     ++i->pc; // skip over the argument count
     tmp = i->tos;
@@ -356,7 +342,6 @@ static void DoSend(Interpreter *i)
         p = i->sp[0];
     p = GetPropertyAddr(i, p, tmp);
     i->pc = i->codeBase + *(VMVALUE *)p;
-#endif
 }
 
 static void DoTrap(Interpreter *i, int op)
