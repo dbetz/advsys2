@@ -10,6 +10,9 @@
 #include <string.h>
 #include <setjmp.h>
 #include "adv2compiler.h"
+#include "adv2vm.h"
+
+static void WriteImage(ParseContext *c, char *name);
 
 int main(int argc, char *argv[])
 {
@@ -46,10 +49,53 @@ int main(int argc, char *argv[])
     
     PrintSymbols(c);
     
+    WriteImage(c, "adv2sys.out");
+    
     //Execute(c->codeBuf);
 
     return 0;
 }
+
+static void WriteImage(ParseContext *c, char *name)
+{
+    int dataSize = c->dataFree - c->dataBuf;
+    int codeSize = c->codeFree - c->codeBuf;
+    int stringSize = c->stringFree - c->stringBuf;
+    int imageSize = sizeof(ImageHdr) + dataSize + codeSize + stringSize;
+    ImageHdr *hdr;
+    Symbol *sym;
+    
+    if (!(hdr = (ImageHdr *)malloc(imageSize)))
+        ParseError(c, "insufficient memory to build image");
+    hdr->dataOffset = sizeof(ImageHdr);
+    hdr->dataSize = dataSize;
+    hdr->codeOffset = hdr->dataOffset + dataSize;
+    hdr->codeSize = codeSize;
+    hdr->stringOffset = hdr->codeOffset + hdr->codeSize;
+    hdr->stringSize = stringSize;
+    
+    memcpy((uint8_t *)hdr + sizeof(ImageHdr), c->dataBuf, dataSize);
+    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize, c->codeBuf, codeSize);
+    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize + codeSize, c->stringBuf, stringSize);
+    
+    if (!(sym = FindSymbol(c, "main")))
+        ParseError(c, "no 'main' function");
+    else if (!sym->valueDefined)
+        ParseError(c, "'main' not defined");
+    else if (sym->storageClass != SC_FUNCTION)
+        ParseError(c, "expecting 'main' to be a function");
+    hdr->mainFunction = sym->v.value;
+    
+    Execute(hdr);
+}
+
+static char *storageClassNames[] = {
+    NULL,
+    "a constant",
+    "a variable",
+    "an object",
+    "a function"
+};
 
 /* AddGlobal - add a global symbol to the symbol table */
 Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value)
@@ -57,32 +103,31 @@ Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, 
     Symbol *sym;
     
     /* check to see if the symbol is already defined */
-    if ((sym = FindSymbol(c, name)) != NULL)
+    if ((sym = FindSymbol(c, name)) != NULL) {
+        Fixup *fixup, *nextFixup;
+        if (sym->valueDefined)
+            ParseError(c, "already defined");
+        else if (storageClass != sym->storageClass)
+            ParseError(c, "expecting %s", storageClassNames[sym->storageClass]);
+        for (fixup = sym->v.fixups; fixup != NULL; fixup = nextFixup) {
+            nextFixup = fixup->next;
+            switch (fixup->type) {
+            case FT_DATA:
+                *(VMVALUE *)&c->dataBuf[fixup->offset] = value;
+                break;
+            case FT_CODE:
+                wr_clong(c, fixup->offset, value);
+                break;
+            }
+            free(fixup);
+        }
+        sym->valueDefined = VMTRUE;
+        sym->v.value = value;
         return sym;
+    }
     
     /* add the symbol */
     return AddSymbol(c, name, storageClass, value);
-}
-
-/* AddObject - enter an object into the symbol table */
-int AddObject(ParseContext *c, const char *name)
-{
-    Symbol *sym;
-
-    if ((sym = FindSymbol(c, name)) != NULL) {
-        if (sym->storageClass != SC_OBJECT)
-            ParseError(c, "not an object");
-        return sym->value;
-    }
-    
-    if (c->objectCount < MAXOBJECTS) {
-        AddSymbol(c, name, SC_OBJECT, ++c->objectCount);
-        c->objectTable[c->objectCount] = 0;
-    }
-    else
-        ParseError(c, "too many objects");
-        
-    return c->objectCount;
 }
 
 /* FindObject - find an object in the symbol table */
@@ -93,15 +138,31 @@ int FindObject(ParseContext *c, const char *name)
     if ((sym = FindSymbol(c, name)) != NULL) {
         if (sym->storageClass != SC_OBJECT)
             ParseError(c, "not an object");
-        if (sym->value == NIL)
+        if (!sym->valueDefined)
             ParseError(c, "object not defined");
-        return sym->value;
+        return sym->v.value;
     }
 
     ParseError(c, "object not defined");
     return NIL; // never reached
 }
 
+/* AddProperty - add a property symbol to the symbol table */
+VMVALUE AddProperty(ParseContext *c, const char *name)
+{
+    Symbol *sym;
+    
+    /* check to see if the symbol is already defined */
+    if ((sym = FindSymbol(c, name)) != NULL) {
+        if (sym->storageClass != SC_CONSTANT)
+            ParseError(c, "not a property or constant");
+        return sym->v.value;
+    }
+    
+    /* add the symbol */
+    sym = AddSymbol(c, name, SC_CONSTANT, ++c->propertyCount);
+    return sym->v.value;
+}
 
 /* InitSymbolTable - initialize a symbol table */
 void InitSymbolTable(ParseContext *c)
@@ -110,8 +171,22 @@ void InitSymbolTable(ParseContext *c)
     c->globals.pTail = &c->globals.head;
 }
 
-/* AddSymbol - add a symbol to a symbol table */
-Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, int value)
+/* AddSymbolRef - add a symbol reference */
+int AddSymbolRef(ParseContext *c, Symbol *symbol, FixupType fixupType, VMVALUE offset)
+{
+    Fixup *fixup;
+    if (symbol->valueDefined)
+        return symbol->v.value;
+    fixup = (Fixup *)LocalAlloc(c, sizeof(Fixup));
+    fixup->type = fixupType;
+    fixup->offset = offset;
+    fixup->next = symbol->v.fixups;
+    symbol->v.fixups = fixup;
+    return 0;
+}
+
+/* AddRawSymbol - add a defined or undefined symbol to a symbol table */
+static Symbol *AddRawSymbol(ParseContext *c, const char *name, StorageClass storageClass)
 {
     size_t size = sizeof(Symbol) + strlen(name);
     Symbol *sym;
@@ -121,13 +196,29 @@ Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, 
     memset(sym, 0, sizeof(Symbol));
     strcpy(sym->name, name);
     sym->storageClass = storageClass;
-    sym->value = value;
 
     /* add it to the symbol table */
     *c->globals.pTail = sym;
     c->globals.pTail = &sym->next;
     
     /* return the symbol */
+    return sym;
+}
+
+/* AddUndefinedSymbol - add an undefined symbol to a symbol table */
+Symbol *AddUndefinedSymbol(ParseContext *c, const char *name, StorageClass storageClass)
+{
+    Symbol *sym = AddRawSymbol(c, name, storageClass);
+    sym->valueDefined = VMFALSE;
+    return sym;
+}
+
+/* AddSymbol - add a symbol to a symbol table */
+Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, int value)
+{
+    Symbol *sym = AddRawSymbol(c, name, storageClass);
+    sym->valueDefined = VMTRUE;
+    sym->v.value = value;
     return sym;
 }
 
@@ -149,7 +240,10 @@ void PrintSymbols(ParseContext *c)
     Symbol *sym;
     printf("Globals\n");
     for (sym = c->globals.head; sym != NULL; sym = sym->next)
-        printf("  %s\t%d\t%d\n", sym->name, sym->storageClass, sym->value);
+        if (sym->valueDefined)
+            printf("  %s\t%d\t%d\n", sym->name, sym->storageClass, sym->v.value);
+        else
+            printf("  %s\t%d\t(undefined)\n", sym->name, sym->storageClass);
 }
 
 /* AddString - add a string to the string table */

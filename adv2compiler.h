@@ -17,8 +17,6 @@
 /* program limits */
 #define MAXLINE         128
 #define MAXTOKEN        32
-#define MAXOBJECTS      (4*K)
-#define MAXFUNCTIONS    (4*K)
 #define MAXCODE         (32*K)
 #define MAXDATA         (64*K)
 #define MAXSTRING       (256*K)
@@ -117,9 +115,11 @@ typedef struct {
 struct Symbol {
     Symbol *next;
     StorageClass storageClass;
-    Fixup *fixups;
     int valueDefined;
-    VMVALUE value;
+    union {
+        Fixup *fixups;
+        VMVALUE value;
+    } v;
     char name[1];
 };
 
@@ -199,10 +199,6 @@ typedef struct {
     String *strings;                                /* parse - string constants */
     ParseTreeNode *function;                        /* parse - current function being parsed */
     Block *block;                                   /* generate - current loop block */
-    unsigned int objectTable[MAXOBJECTS + 1];       /* object table (offsets into data space) */
-    int objectCount;                                /* object count */
-    unsigned int functionTable[MAXFUNCTIONS + 1];   /* function table (offsets into code space) */
-    int functionCount;                              /* function count */
     int propertyCount;                              /* property count */
     uint8_t codeBuf[MAXCODE];                       /* code buffer */
     uint8_t *codeBase;                              /* base address of function being compiled */
@@ -369,10 +365,12 @@ struct ParseTreeNode {
 };
 
 /* adv2com.c */
-int AddObject(ParseContext *c, const char *name);
 int FindObject(ParseContext *c, const char *name);
+VMVALUE AddProperty(ParseContext *c, const char *name);
 void InitSymbolTable(ParseContext *c);
 Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
+int AddSymbolRef(ParseContext *c, Symbol *symbol, FixupType fixupType, VMVALUE offset);
+Symbol *AddUndefinedSymbol(ParseContext *c, const char *name, StorageClass storageClass);
 Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, int value);
 Symbol *FindSymbol(ParseContext *c, const char *name);
 void PrintSymbols(ParseContext *c);
@@ -401,6 +399,7 @@ void ParseError(ParseContext *c, char *fmt, ...);
 
 /* adv2gen.c */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength);
+void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 
 #endif
 

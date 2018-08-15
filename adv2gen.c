@@ -19,6 +19,7 @@ static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBre
 static void code_block(ParseContext *c, ParseTreeNode *expr);
 static void code_exprstatement(ParseContext *c, ParseTreeNode *expr);
 static void code_print(ParseContext *c, ParseTreeNode *expr);
+static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL *pv);
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
@@ -36,7 +37,6 @@ static int putcbyte(ParseContext *c, int v);
 static int putcword(ParseContext *c, VMWORD v);
 static int putclong(ParseContext *c, VMVALUE v);
 static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
-static void fixup(ParseContext *c, VMUVALUE chn, VMUVALUE val);
 
 /* code_functiondef - generate code for a function definition */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
@@ -285,9 +285,7 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     
     switch (expr->nodeType) {
     case NodeTypeGlobalSymbolRef:
-        putcbyte(c, OP_LIT);
-        putclong(c, (VMVALUE)expr->u.symbolRef.symbol);
-        *pv = VT_LVALUE;
+        code_symbolref(c, expr, pv);
         break;
     case NodeTypeLocalSymbolRef:
         putcbyte(c, OP_LADDR);
@@ -387,6 +385,31 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         break;
     case NodeTypeConjunction:
         code_shortcircuit(c, OP_BRFSC, expr, pv);
+        break;
+    }
+}
+
+/* code_symbolref - generate code for a symbol reference */
+static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
+{
+    Symbol *symbol = expr->u.symbolRef.symbol;
+    switch (symbol->storageClass) {
+    case SC_VARIABLE:
+        putcbyte(c, OP_DADDR);
+        putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
+        *pv = VT_LVALUE;
+        break;
+    case SC_OBJECT:
+        putcbyte(c, OP_DADDR);
+        putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
+        *pv = VT_RVALUE;
+        break;
+    case SC_FUNCTION:
+        putcbyte(c, OP_CADDR);
+        putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
+        *pv = VT_RVALUE;
+        break;
+    default:
         break;
     }
 }
@@ -516,13 +539,12 @@ static void PopBlock(ParseContext *c)
 
 static VMWORD rd_cword(ParseContext *c, VMUVALUE off);
 static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v);
-static VMVALUE rd_clong(ParseContext *c, VMUVALUE off);
-static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
+void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 
 /* codeaddr - get the current code address (actually, offset) */
 static int codeaddr(ParseContext *c)
 {
-    return (int)(c->codeFree - c->codeBase);
+    return (int)(c->codeFree - c->codeBuf);
 }
 
 /* putcbyte - put a code byte into the code buffer */
@@ -541,7 +563,7 @@ static int putcword(ParseContext *c, VMWORD v)
     int addr = codeaddr(c);
     if (c->codeFree + sizeof(VMWORD) > c->codeTop)
         Abort(c, "insufficient memory");
-    wr_cword(c, c->codeFree - c->codeBase, v);
+    wr_cword(c, addr, v);
     c->codeFree += sizeof(VMWORD);
     return addr;
 }
@@ -552,7 +574,7 @@ static int putclong(ParseContext *c, VMVALUE v)
     int addr = codeaddr(c);
     if (c->codeFree + sizeof(VMVALUE) > c->codeTop)
         Abort(c, "insufficient memory");
-    wr_clong(c, c->codeFree - c->codeBase, v);
+    wr_clong(c, addr, v);
     c->codeFree += sizeof(VMVALUE);
     return addr;
 }
@@ -568,30 +590,20 @@ static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val)
     }
 }
 
-/* fixup - fixup a reference chain */
-void fixup(ParseContext *c, VMUVALUE chn, VMUVALUE val)
-{
-    while (chn != 0) {
-        int nxt = rd_clong(c, chn);
-        wr_clong(c, chn, val);
-        chn = nxt;
-    }
-}
-
 /* rd_cword - get a code word from the code buffer */
 static VMWORD rd_cword(ParseContext *c, VMUVALUE off)
 {
     int cnt = sizeof(VMWORD);
     VMWORD v = 0;
     while (--cnt >= 0)
-        v = (v << 8) | c->codeBase[off++];
+        v = (v << 8) | c->codeBuf[off++];
     return v;
 }
 
 /* wr_cword - put a code word into the code buffer */
 static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v)
 {
-    uint8_t *p = &c->codeBase[off] + sizeof(VMWORD);
+    uint8_t *p = &c->codeBuf[off] + sizeof(VMWORD);
     int cnt = sizeof(VMWORD);
     while (--cnt >= 0) {
         *--p = v;
@@ -599,20 +611,10 @@ static void wr_cword(ParseContext *c, VMUVALUE off, VMWORD v)
     }
 }
 
-/* rd_clong - get a code word from the code buffer */
-static VMVALUE rd_clong(ParseContext *c, VMUVALUE off)
-{
-    int cnt = sizeof(VMVALUE);
-    VMVALUE v = 0;
-    while (--cnt >= 0)
-        v = (v << 8) | c->codeBuf[off++];
-    return v;
-}
-
 /* wr_clong - put a code word into the code buffer */
-static void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v)
+void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v)
 {
-    uint8_t *p = &c->codeBase[off] + sizeof(VMVALUE);
+    uint8_t *p = &c->codeBuf[off] + sizeof(VMVALUE);
     int cnt = sizeof(VMVALUE);
     while (--cnt >= 0) {
         *--p = v;

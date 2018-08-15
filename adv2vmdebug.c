@@ -67,6 +67,8 @@ OTDEF OpcodeTable[] = {
 { OP_TRAP,      "TRAP",     FMT_BYTE    },
 { OP_PADDR,     "PADDR",    FMT_NONE    },
 { OP_SEND,      "SEND",     FMT_BYTE    },
+{ OP_DADDR,     "DADDR",    FMT_LONG    },
+{ OP_CADDR,     "CADDR",    FMT_LONG    },
 { 0,            NULL,       0           }
 };
 
@@ -92,7 +94,7 @@ int DecodeInstruction(const uint8_t *code, const uint8_t *lc)
     opcode = VMCODEBYTE(lc);
 
     /* show the address */
-    printf("%08x %02x ", (int)lc, opcode);
+    printf("%04x %02x ", lc - code, opcode);
     n = 1;
 
     /* display the operands */
@@ -143,7 +145,7 @@ int DecodeInstruction(const uint8_t *code, const uint8_t *lc)
                 printf("%s ", op->name);
                 for (i = 0; i < sizeof(VMWORD); ++i)
                     printf("%02x", bytes[i]);
-                printf(" # %08lx\n", (unsigned long)lc + 1 + sizeof(VMWORD) + offset);
+                printf(" # %04x\n", (lc + 1 + sizeof(VMWORD) + offset) - code);
                 n += sizeof(VMWORD);
                 break;
             }

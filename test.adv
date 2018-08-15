@@ -19,7 +19,7 @@ def bar(x)
     return x-1;
 }
 
-def main(a, b, c)
+def zip(a, b, c)
 {
     var d, e;
     d = a + b;
@@ -36,7 +36,14 @@ def main(a, b, c)
     }
     d = [a look 1, 2, 3];
     e = [super look 1, 2, 3];
-    a.foo = 1;
-    b.foo = a.bar;
+    a.baz = 1;
+    b.baz = a.zog;
+    bar(10);
     return d + e;
 }
+
+def main()
+{
+    zip(10, 20, 30);
+}
+

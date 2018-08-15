@@ -56,7 +56,7 @@ static void ShowStack(Interpreter *i);
 #endif
 
 /* Execute - execute the main code */
-int Execute(uint8_t *main)
+int Execute(ImageHdr *image)
 {
     Interpreter *i;
     VMVALUE tmp;
@@ -69,25 +69,23 @@ int Execute(uint8_t *main)
         return VMFALSE;
 
 	/* setup the new image */
+	i->dataBase = (uint8_t *)image + image->dataOffset;
+	i->codeBase = (uint8_t *)image + image->codeOffset;
+	i->stringBase = (uint8_t *)image + image->stringOffset;
     i->stack = (VMVALUE *)((uint8_t *)i + sizeof(Interpreter));
     i->stackTop = (VMVALUE *)((uint8_t *)i->stack + MAXSTACK);
 
     /* initialize */    
-    i->pc = main;
+    i->pc = i->codeBase + image->mainFunction;
     i->sp = i->fp = i->stackTop;
     
-    /* dummy arguments for testing */
-    CPush(i, 30);
-    CPush(i, 20);
-    CPush(i, 10);
-
     if (setjmp(i->errorTarget))
         return VMFALSE;
 
     for (;;) {
 #ifdef DEBUG
         ShowStack(i);
-        DecodeInstruction(i->pc, i->pc);
+        DecodeInstruction(i->codeBase, i->pc);
 #endif
         switch (VMCODEBYTE(i->pc++)) {
         case OP_HALT:
@@ -276,6 +274,18 @@ int Execute(uint8_t *main)
         case OP_PADDR:
             break;
         case OP_SEND:
+            break;
+        case OP_CADDR:
+            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
+                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
+            CPush(i, i->tos);
+            i->tos = (VMVALUE)(i->codeBase + tmp);
+            break;
+        case OP_DADDR:
+            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
+                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
+            CPush(i, i->tos);
+            i->tos = (VMVALUE)(i->dataBase + tmp);
             break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));

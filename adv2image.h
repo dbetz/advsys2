@@ -28,7 +28,7 @@ typedef struct {
 
 /* property structure */
 typedef struct {
-    VMVALUE property;
+    VMVALUE tag;
     VMVALUE value;
 } Property;
 
@@ -36,8 +36,8 @@ typedef struct {
 typedef struct {
     VMVALUE class;
     VMVALUE nProperties;
-    Property properties[1];
-} Object;
+    /* properties follow */
+} ObjectHdr;
 
 /* stack frame format:
 
@@ -99,6 +99,8 @@ fp -> arg 1
 #define OP_TRAP         0x28    /* trap to handler */
 #define OP_PADDR        0x29    /* get an object property address */
 #define OP_SEND         0x2a    /* send a message to an object */
+#define OP_DADDR        0x2b    /* load the address of an object in data space */
+#define OP_CADDR        0x2c    /* load the address of an object in code space */
 
 /* VM trap codes */
 enum {
