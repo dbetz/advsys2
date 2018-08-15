@@ -144,7 +144,7 @@ static void ParseFunctionDef(ParseContext *c, char *name)
     AddGlobal(c, name, SC_FUNCTION, (VMVALUE)(c->codeFree - c->codeBuf));
     
     node = ParseFunction(c);
-    PrintNode(node, 0);
+    PrintNode(c, node, 0);
     
     code = code_functiondef(c, node, &codeLength);
     
@@ -160,6 +160,13 @@ static void ParseVar(ParseContext *c)
         if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
             ParseError(c, "insufficient data space");
         AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
+        if ((tkn = GetToken(c)) == '=') {
+            ParseTreeNode *expr = ParseIntegerLiteralExpr(c);
+            *(VMVALUE *)c->dataFree = expr->u.integerLit.value;
+        }
+        else {
+            SaveToken(c, tkn);
+        }
         c->dataFree += sizeof(VMVALUE);
     } while ((tkn = GetToken(c)) == ',');
     Require(c, tkn, ';');
@@ -226,7 +233,7 @@ static void ParseObject(ParseContext *c, char *className)
             uint8_t *code;
             int codeLength;
             node = ParseMethod(c);
-            PrintNode(node, 0);
+            PrintNode(c, node, 0);
             code = code_functiondef(c, node, &codeLength);
             DecodeFunction(code, codeLength);
             value = (VMVALUE)(code - c->codeBuf);
@@ -245,6 +252,8 @@ static void ParseObject(ParseContext *c, char *className)
         else {
             if ((uint8_t *)property + sizeof(Property) > c->dataTop)
                 ParseError(c, "insufficient data space");
+            property->tag = tag | flags;
+            property->value = value;
             ++objectHdr->nProperties;
             ++property;
         }

@@ -9,6 +9,6 @@
 
 #include "adv2compiler.h"
 
-void PrintNode(ParseTreeNode *node, int indent);
+void PrintNode(ParseContext *c, ParseTreeNode *node, int indent);
 
 #endif

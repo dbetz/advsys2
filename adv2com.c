@@ -18,6 +18,20 @@ int main(int argc, char *argv[])
 {
     ParseContext context;
     ParseContext *c = &context;
+    char outputFile[100], *p;
+    
+    if (argc != 2) {
+        printf("usage: adv2com <file>\n");
+        return 1;
+    }
+    
+    if (!(p = strrchr(argv[1], '.')))
+        strcpy(outputFile, argv[1]);
+    else {
+        strncpy(outputFile, argv[1], p - argv[1]);
+        outputFile[p - argv[1]] = '\0';
+    }
+    strcat(outputFile, ".dat");
     
     /* initialize the parse context */
     memset(c, 0, sizeof(ParseContext));
@@ -32,10 +46,9 @@ int main(int argc, char *argv[])
     c->stringFree = c->stringBuf;
     c->stringTop = c->stringBuf + sizeof(c->stringBuf);
     
-    if (argc != 2) {
-        printf("usage: adv2com <file>\n");
-        return 1;
-    }
+    /* fake place to return to from main */
+    putcbyte(c, 0); // argument count from fake CALL instruction
+    putcbyte(c, OP_HALT);
     
     if (setjmp(c->errorTarget))
         return 1;
@@ -49,10 +62,8 @@ int main(int argc, char *argv[])
     
     PrintSymbols(c);
     
-    WriteImage(c, "adv2sys.out");
+    WriteImage(c, outputFile);
     
-    //Execute(c->codeBuf);
-
     return 0;
 }
 
@@ -64,6 +75,7 @@ static void WriteImage(ParseContext *c, char *name)
     int imageSize = sizeof(ImageHdr) + dataSize + codeSize + stringSize;
     ImageHdr *hdr;
     Symbol *sym;
+    FILE *fp;
     
     if (!(hdr = (ImageHdr *)malloc(imageSize)))
         ParseError(c, "insufficient memory to build image");
@@ -86,7 +98,15 @@ static void WriteImage(ParseContext *c, char *name)
         ParseError(c, "expecting 'main' to be a function");
     hdr->mainFunction = sym->v.value;
     
-    Execute(hdr);
+    if (!(fp = fopen(name, "wb")))
+        ParseError(c, "can't create file '%s'", name);
+        
+    if (fwrite(hdr, 1, imageSize, fp) != imageSize)
+        ParseError(c, "error writing image file");
+        
+    fclose(fp);
+    
+    //Execute(hdr);
 }
 
 static char *storageClassNames[] = {
@@ -254,13 +274,18 @@ String *AddString(ParseContext *c, char *value)
     
     /* check to see if the string is already in the table */
     for (str = c->strings; str != NULL; str = str->next)
-        if (strcmp(value, str->data) == 0)
+        if (strcmp(value, (char *)c->stringBuf + str->offset) == 0)
             return str;
+
+    if (c->stringFree + strlen(value) + 1 > c->stringTop)
+        ParseError(c, "insufficient string space");
 
     /* allocate the string structure */
     size = sizeof(String) + strlen(value);
     str = (String *)LocalAlloc(c, size);
-    strcpy((char *)str->data, value);
+    str->offset = c->stringBuf - c->stringFree;
+    strcpy((char *)c->stringFree, value);
+    c->stringFree += strlen(value) + 1;
     str->next = c->strings;
     c->strings = str;
 

@@ -65,10 +65,11 @@ OTDEF OpcodeTable[] = {
 { OP_TUCK,      "TUCK",     FMT_NONE    },
 { OP_NATIVE,    "NATIVE",   FMT_LONG    },
 { OP_TRAP,      "TRAP",     FMT_BYTE    },
-{ OP_PADDR,     "PADDR",    FMT_NONE    },
 { OP_SEND,      "SEND",     FMT_BYTE    },
 { OP_DADDR,     "DADDR",    FMT_LONG    },
 { OP_CADDR,     "CADDR",    FMT_LONG    },
+{ OP_SADDR,     "SADDR",    FMT_LONG    },
+{ OP_PADDR,     "PADDR",    FMT_NONE    },
 { 0,            NULL,       0           }
 };
 

@@ -1,5 +1,7 @@
 var x, y, z;
 
+var test = 3;
+
 property p1, p2, p3, kitchen;
 
 object livingroom {
@@ -34,16 +36,19 @@ def zip(a, b, c)
         if (a < 0) continue;
         e += a;
     }
-    d = [a look 1, 2, 3];
-    e = [super look 1, 2, 3];
-    a.baz = 1;
-    b.baz = a.zog;
-    bar(10);
+//    d = [a look 1, 2, 3];
+//    e = [super look 1, 2, 3];
+//    a.baz = 1;
+//    b.baz = a.zog;
+    print bar(10);
     return d + e;
 }
 
 def main()
 {
-    zip(10, 20, 30);
+    print "Hello, world!";
+    print test;
+    print bar(foo(10));
+    print bar(foo(10));
+//    print zip(10, 20, 30);
 }
-

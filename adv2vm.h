@@ -12,6 +12,6 @@
 #define MAXSTACK    4096
 
 /* prototypes from adv2exe.c */
-int Execute(ImageHdr *image);
+int Execute(ImageHdr *image, int debug);
 
 #endif

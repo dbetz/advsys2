@@ -3,7 +3,6 @@ adv2com.o \
 adv2parse.o \
 adv2scan.o \
 adv2gen.o \
-adv2exe.o \
 adv2debug.o \
 adv2vmdebug.o
 
@@ -25,9 +24,12 @@ adv2vmdebug.h
 
 all:	adv2com adv2int
 
-run:    adv2com test.adv
-	./adv2com test.adv
+run:    adv2int test.dat
+	./adv2int test.dat
 
+%.dat:	%.adv adv2com
+	./adv2com $<
+	
 $(COMOBJS):	$(COMHDRS)
 
 $(INTOBJS):	$(INTHDRS)
@@ -44,4 +46,4 @@ adv2int:	$(INTOBJS)
 	cc $(CFLAGS) -o $@ $(INTOBJS)
 
 clean:
-	rm -f *.o adv2com adv2int
+	rm -f *.o *.dat adv2com adv2int

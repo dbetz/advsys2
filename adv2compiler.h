@@ -157,7 +157,7 @@ struct LocalSymbol {
 typedef struct String String;
 struct String {
     String *next;
-    char data[1];
+    int offset;
 };
 
 typedef struct IncludedFile IncludedFile;
@@ -399,6 +399,7 @@ void ParseError(ParseContext *c, char *fmt, ...);
 
 /* adv2gen.c */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength);
+int putcbyte(ParseContext *c, int v);
 void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 
 #endif

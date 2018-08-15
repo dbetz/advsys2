@@ -33,7 +33,6 @@ static void PushBlock(ParseContext *c, Block *block, BlockType type);
 static void PopBlock(ParseContext *c);
 
 static int codeaddr(ParseContext *c);
-static int putcbyte(ParseContext *c, int v);
 static int putcword(ParseContext *c, VMWORD v);
 static int putclong(ParseContext *c, VMVALUE v);
 static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
@@ -298,8 +297,8 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         *pv = VT_LVALUE;
         break;
     case NodeTypeStringLit:
-        putcbyte(c, OP_LIT);
-        putclong(c, (VMVALUE)&expr->u.stringLit.string->data);
+        putcbyte(c, OP_SADDR);
+        putclong(c, expr->u.stringLit.string->offset);
         *pv = VT_RVALUE;
         break;
     case NodeTypeIntegerLit:
@@ -548,7 +547,7 @@ static int codeaddr(ParseContext *c)
 }
 
 /* putcbyte - put a code byte into the code buffer */
-static int putcbyte(ParseContext *c, int b)
+int putcbyte(ParseContext *c, int b)
 {
     int addr = codeaddr(c);
     if (c->codeFree >= c->codeTop)

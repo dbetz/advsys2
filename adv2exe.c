@@ -13,8 +13,6 @@
 #include "adv2vm.h"
 #include "adv2vmdebug.h"
 
-//#define DEBUG
-
 /* interpreter state structure */
 typedef struct {
     jmp_buf errorTarget;
@@ -51,12 +49,10 @@ typedef struct {
 static void DoTrap(Interpreter *i, int op);
 static void StackOverflow(Interpreter *i);
 static void Abort(Interpreter *i, const char *fmt, ...);
-#ifdef DEBUG
 static void ShowStack(Interpreter *i);
-#endif
 
 /* Execute - execute the main code */
-int Execute(ImageHdr *image)
+int Execute(ImageHdr *image, int debug)
 {
     Interpreter *i;
     VMVALUE tmp;
@@ -79,14 +75,19 @@ int Execute(ImageHdr *image)
     i->pc = i->codeBase + image->mainFunction;
     i->sp = i->fp = i->stackTop;
     
+    /* put the address of a HALT on the top of the stack */
+    /* codeBase[0] is zero to act as the second byte of a fake CALL instruction */
+    /* codeBase[1] is a HALT instruction */
+    i->tos = (VMVALUE)i->codeBase + 1;
+    
     if (setjmp(i->errorTarget))
         return VMFALSE;
 
     for (;;) {
-#ifdef DEBUG
-        ShowStack(i);
-        DecodeInstruction(i->codeBase, i->pc);
-#endif
+        if (debug) {
+            ShowStack(i);
+            DecodeInstruction(i->codeBase, i->pc);
+        }
         switch (VMCODEBYTE(i->pc++)) {
         case OP_HALT:
             return VMTRUE;
@@ -271,8 +272,6 @@ int Execute(ImageHdr *image)
         case OP_TRAP:
             DoTrap(i, VMCODEBYTE(i->pc++));
             break;
-        case OP_PADDR:
-            break;
         case OP_SEND:
             break;
         case OP_CADDR:
@@ -286,6 +285,14 @@ int Execute(ImageHdr *image)
                 tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
             CPush(i, i->tos);
             i->tos = (VMVALUE)(i->dataBase + tmp);
+            break;
+        case OP_SADDR:
+            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
+                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
+            CPush(i, i->tos);
+            i->tos = (VMVALUE)(i->stringBase + tmp);
+            break;
+        case OP_PADDR:
             break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
@@ -397,18 +404,22 @@ static void Abort(Interpreter *i, const char *fmt, ...)
     longjmp(i->errorTarget, 1);
 }
 
-#ifdef DEBUG
 static void ShowStack(Interpreter *i)
 {
     VMVALUE *p;
+    printf("%d", i->tos);
+    if (i->tos > 10000)
+        printf("(%x)", (uint8_t *)i->tos - i->codeBase);
     if (i->sp < i->stackTop) {
-        printf(" %d", i->tos);
         for (p = i->sp; p < i->stackTop; ++p) {
             if (p == i->fp)
                 printf(" <fp>");
             printf(" %d", *p);
+            if (*p > 10000)
+                printf("(%x)", (uint8_t *)*p - i->codeBase);
         }
-        printf("\n");
     }
+    if (i->fp == i->stackTop)
+        printf(" <fp>");
+    printf("\n");
 }
-#endif
