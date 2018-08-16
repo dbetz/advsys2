@@ -1,0 +1,49 @@
+object location {
+}
+
+location storage_room {
+description:    "You are in the storage room.";
+west:           hallway;
+}
+
+location hallway {
+description:    "You are in the hallway.";
+east:           storage_room;
+north:          kitchen;
+south:          livingroom;
+}
+
+location kitchen {
+description:    "You are in the kitchen.";
+south:          hallway;
+west:           pantry;
+}
+
+location pantry {
+description:    "You are in the pantry.";
+east:           kitchen;
+}
+
+location livingroom {
+description:    "You are in the livingroom.";
+north:          hallway;
+west:           closet;
+south:          outside;
+}
+
+location closet {
+description:    "You are in the closet.";
+east:           livingroom;
+}
+
+location outside {
+description:    "You are outside.";
+north:          livingroom;
+}
+
+def main()
+{
+    print "Hello, world!";
+}
+
+ 

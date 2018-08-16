@@ -30,6 +30,12 @@ run:    adv2int test.dat
 debug:    adv2int test.dat
 	./adv2int -d test.dat
 
+game:    adv2int game.dat
+	./adv2int game.dat
+
+gamed:    adv2int game.dat
+	./adv2int -d game.dat
+
 %.dat:	%.adv adv2com
 	./adv2com $<
 	
