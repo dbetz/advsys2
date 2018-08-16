@@ -42,7 +42,7 @@ uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
 {
     c->codeBase = c->codeFree;
     putcbyte(c, OP_FRAME);
-    putcbyte(c, expr->u.functionDef.locals.count + 2);
+    putcbyte(c, expr->u.functionDef.locals.count + 1);
     code_statement(c, expr->u.functionDef.body);
     putcbyte(c, OP_RETURN);
     *pLength = c->codeFree - c->codeBase;
@@ -288,7 +288,7 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         break;
     case NodeTypeLocalSymbolRef:
         putcbyte(c, OP_LADDR);
-        putcbyte(c, -expr->u.localSymbolRef.symbol->offset - 3);
+        putcbyte(c, -expr->u.localSymbolRef.symbol->offset - 1);
         *pv = VT_LVALUE;
         break;
     case NodeTypeArgumentRef:

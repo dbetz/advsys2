@@ -252,14 +252,14 @@ int Execute(ImageHdr *image, int debug)
             tmp = (VMVALUE)i->fp;
             i->fp = i->sp;
             Reserve(i, cnt);
-            i->sp[0] = i->tos;
-            i->sp[1] = tmp;
+            *i->sp = tmp;
             break;
         case OP_RETURN:
-            i->pc = (uint8_t *)Top(i);
+            i->pc = (uint8_t *)i->sp[0];
+            tmp = i->sp[1];
             i->sp = i->fp;
             Drop(i, i->pc[-1]);
-            i->fp = (VMVALUE *)i->fp[-1];
+            i->fp = (VMVALUE *)tmp;
             break;
         case OP_DROP:
             i->tos = Pop(i);
@@ -402,11 +402,16 @@ static void ShowOffset(Interpreter *i, VMVALUE value)
         printf("(c:%d-%x)", p - i->codeBase, p - i->codeBase);
     else if (p >= i->stringBase && p < i->stringTop)
         printf("(s:%d)", p - i->stringBase);
+    else if ((VMVALUE *)p >= i->stack && (VMVALUE *)p < i->stackTop)
+        printf("(%d)", (VMVALUE *)p - i->stack);
+    else if ((VMVALUE *)p == i->stackTop)
+        printf("(top)");
 }
 
 static void ShowStack(Interpreter *i)
 {
     VMVALUE *p;
+    printf("sp %d, fp %d\n", i->sp - i->stack, i->fp - i->stack);
     printf("%d", i->tos);
     ShowOffset(i, i->tos);
     if (i->sp < i->stackTop) {
