@@ -202,7 +202,6 @@ typedef struct {
     Block *block;                                   /* generate - current loop block */
     int propertyCount;                              /* property count */
     uint8_t codeBuf[MAXCODE];                       /* code buffer */
-    uint8_t *codeBase;                              /* base address of function being compiled */
     uint8_t *codeFree;                              /* next available code location */
     uint8_t *codeTop;                               /* top of code buffer */
     uint8_t dataBuf[MAXDATA];                       /* data buffer */
@@ -383,7 +382,6 @@ void *LocalAlloc(ParseContext *c, size_t size);
 /* adv2parse.c */
 void ParseDeclarations(ParseContext *c);
 void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent);
-int IsConstant(Symbol *symbol);
 
 /* adv2scan.c */
 void InitScan(ParseContext *c);

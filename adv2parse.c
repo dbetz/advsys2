@@ -32,7 +32,8 @@ static ParseTreeNode *ParseBlock(ParseContext *c);
 static ParseTreeNode *ParseExprStatement(ParseContext *c);
 static ParseTreeNode *ParseEmpty(ParseContext *c);
 static ParseTreeNode *ParsePrint(ParseContext *c);
-static ParseTreeNode *ParseIntegerLiteralExpr(ParseContext *c);
+static VMVALUE ParseIntegerLiteralExpr(ParseContext *c);
+static VMVALUE ParseConstantLiteralExpr(ParseContext *c, VMVALUE offset);
 static ParseTreeNode *ParseExpr(ParseContext *c);
 static ParseTreeNode *ParseExpr1(ParseContext *c);
 static ParseTreeNode *ParseExpr2(ParseContext *c);
@@ -60,7 +61,7 @@ static void InitLocalSymbolTable(LocalSymbolTable *table);
 static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset);
 static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
-static int IsIntegerLit(ParseTreeNode *node);
+static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue);
 
 /* ParseDeclarations - parse variable, object, and function declarations */
 void ParseDeclarations(ParseContext *c)
@@ -122,14 +123,7 @@ static void ParseDef(ParseContext *c)
 /* ParseConstantDef - parse a 'def <name> =' statement */
 static void ParseConstantDef(ParseContext *c, char *name)
 {
-    ParseTreeNode *expr;
-
-    /* get the constant value */
-    expr = ParseIntegerLiteralExpr(c);
-
-    /* add the symbol as a global */
-    AddGlobal(c, name, SC_CONSTANT, expr->u.integerLit.value);
-
+    AddGlobal(c, name, SC_CONSTANT, ParseIntegerLiteralExpr(c));
     FRequire(c, ';');
 }
 
@@ -161,8 +155,8 @@ static void ParseVar(ParseContext *c)
             ParseError(c, "insufficient data space");
         AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
         if ((tkn = GetToken(c)) == '=') {
-            ParseTreeNode *expr = ParseIntegerLiteralExpr(c);
-            *(VMVALUE *)c->dataFree = expr->u.integerLit.value;
+            VMVALUE offset = c->dataFree - c->dataBuf;
+            *(VMVALUE *)c->dataFree = ParseConstantLiteralExpr(c, offset);
         }
         else {
             SaveToken(c, tkn);
@@ -220,15 +214,34 @@ static void ParseObject(ParseContext *c, char *className)
     /* parse object properties */
     FRequire(c, '{');
     while ((tkn = GetToken(c)) != '}') {
-        VMVALUE tag, value;
-        VMVALUE flags = 0;
+        VMVALUE tag, flags = 0;
         if (tkn == T_SHARED) {
             flags = P_SHARED;
             tkn = GetToken(c);
         }
         Require(c, tkn, T_IDENTIFIER);
-        tag = AddProperty(c, c->token) | flags;
+        tag = AddProperty(c, c->token);
         FRequire(c, ':');
+        
+        /* find a property copied from the class */
+        for (p = (Property *)(objectHdr + 1); p < property; ++p) {
+            if (p->tag & P_SHARED)
+                ParseError(c, "can't set shared property in object definition");
+            else if (p->tag == tag)
+                break;
+        }
+        
+        /* add a new property if one wasn't found that was copied from the class */
+        if (p >= property) {
+            if ((uint8_t *)property + sizeof(Property) > c->dataTop)
+                ParseError(c, "insufficient data space");
+            p = property;
+            p->tag = tag | flags;
+            ++objectHdr->nProperties;
+            ++property;
+        }
+        
+        /* handle methods */
         if ((tkn = GetToken(c)) == T_METHOD) {
             uint8_t *code;
             int codeLength;
@@ -236,27 +249,16 @@ static void ParseObject(ParseContext *c, char *className)
             PrintNode(c, node, 0);
             code = code_functiondef(c, node, &codeLength);
             DecodeFunction(c->codeBuf, code, codeLength);
-            value = (VMVALUE)(code - c->codeBuf);
+            p->value = (VMVALUE)(code - c->codeBuf);
         }
+        
+        /* handle values */
         else {
+            VMVALUE offset = (uint8_t *)&p->value - c->dataBuf;
             SaveToken(c, tkn);
-            node = ParseIntegerLiteralExpr(c);
-            value = node->u.integerLit.value;
+            p->value = ParseConstantLiteralExpr(c, offset);
         }
-        for (p = (Property *)(objectHdr + 1); p < property; ++p) {
-            if ((p->tag & ~P_SHARED) == tag)
-                break;
-        }
-        if (p < property)
-            p->value = value;
-        else {
-            if ((uint8_t *)property + sizeof(Property) > c->dataTop)
-                ParseError(c, "insufficient data space");
-            property->tag = tag | flags;
-            property->value = value;
-            ++objectHdr->nProperties;
-            ++property;
-        }
+
         FRequire(c, ';');
     }
     
@@ -541,6 +543,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
             needNewline = VMFALSE;
             op = LocalAlloc(c, sizeof(PrintOp));
             op->trap = TRAP_PrintTab;
+            op->expr = NULL;
             op->next = NULL;
             *pNext = op;
             pNext = &op->next;
@@ -577,6 +580,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
     if (needNewline) {
         op = LocalAlloc(c, sizeof(PrintOp));
         op->trap = TRAP_PrintNL;
+        op->expr = NULL;
         op->next = NULL;
         *pNext = op;
         pNext = &op->next;
@@ -584,6 +588,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
     else {
         op = LocalAlloc(c, sizeof(PrintOp));
         op->trap = TRAP_PrintFlush;
+        op->expr = NULL;
         op->next = NULL;
         *pNext = op;
         pNext = &op->next;
@@ -593,12 +598,43 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
 }
 
 /* ParseIntegerLiteralExpr - parse an integer literal expression */
-static ParseTreeNode *ParseIntegerLiteralExpr(ParseContext *c)
+static VMVALUE ParseIntegerLiteralExpr(ParseContext *c)
 {
-    ParseTreeNode *node = ParseExpr(c);
-    if (!IsIntegerLit(node))
+    ParseTreeNode *expr = ParseExpr(c);
+    VMVALUE value;
+    if (!IsIntegerLit(expr, &value))
         ParseError(c, "expecting a constant expression");
-    return node;
+    return value;
+}
+
+/* ParseConstantLiteralExpr - parse a constant literal expression (including objects and functions) */
+static VMVALUE ParseConstantLiteralExpr(ParseContext *c, VMVALUE offset)
+{
+    ParseTreeNode *expr = ParseExpr(c);
+    VMVALUE value = NIL;
+    switch (expr->nodeType) {
+    case NodeTypeIntegerLit:
+        value = expr->u.integerLit.value;
+        break;
+    case NodeTypeStringLit:
+        value = expr->u.stringLit.string->offset;
+        break;
+    case NodeTypeGlobalSymbolRef:
+        switch (expr->u.symbolRef.symbol->storageClass) {
+        case SC_OBJECT:
+        case SC_FUNCTION:
+            value = AddSymbolRef(c, expr->u.symbolRef.symbol, FT_DATA, offset);
+            break;
+        default:
+            ParseError(c, "expecting a constant expression, object, or function");
+            break;
+        }
+        break;
+    default:
+        ParseError(c, "expecting a constant expression, object, or function");
+        break;
+    }
+    return value;
 }
 
 /* ParseExpr - handle assignment operators */
@@ -718,9 +754,10 @@ static ParseTreeNode *ParseExpr3(ParseContext *c)
     int tkn;
     expr = ParseExpr4(c);
     while ((tkn = GetToken(c)) == '^') {
+        VMVALUE value, value2;
         expr2 = ParseExpr4(c);
-        if (IsIntegerLit(expr) && IsIntegerLit(expr2))
-            expr->u.integerLit.value = expr->u.integerLit.value ^ expr2->u.integerLit.value;
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2))
+            expr->u.integerLit.value = value ^ value2;
         else
             expr = MakeBinaryOpNode(c, OP_BXOR, expr, expr2);
     }
@@ -735,9 +772,10 @@ static ParseTreeNode *ParseExpr4(ParseContext *c)
     int tkn;
     expr = ParseExpr5(c);
     while ((tkn = GetToken(c)) == '|') {
+        VMVALUE value, value2;
         expr2 = ParseExpr5(c);
-        if (IsIntegerLit(expr) && IsIntegerLit(expr2))
-            expr->u.integerLit.value = expr->u.integerLit.value | expr2->u.integerLit.value;
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2))
+            expr->u.integerLit.value = value | value2;
         else
             expr = MakeBinaryOpNode(c, OP_BOR, expr, expr2);
     }
@@ -752,9 +790,10 @@ static ParseTreeNode *ParseExpr5(ParseContext *c)
     int tkn;
     expr = ParseExpr6(c);
     while ((tkn = GetToken(c)) == '&') {
+        VMVALUE value, value2;
         expr2 = ParseExpr6(c);
-        if (IsIntegerLit(expr) && IsIntegerLit(expr2))
-            expr->u.integerLit.value = expr->u.integerLit.value & expr2->u.integerLit.value;
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2))
+            expr->u.integerLit.value = value & value2;
         else
             expr = MakeBinaryOpNode(c, OP_BAND, expr, expr2);
     }
@@ -829,14 +868,15 @@ static ParseTreeNode *ParseExpr8(ParseContext *c)
     int tkn;
     expr = ParseExpr9(c);
     while ((tkn = GetToken(c)) == T_SHL || tkn == T_SHR) {
+        VMVALUE value, value2;
         expr2 = ParseExpr9(c);
-        if (IsIntegerLit(expr) && IsIntegerLit(expr2)) {
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2)) {
             switch (tkn) {
             case T_SHL:
-                expr->u.integerLit.value = expr->u.integerLit.value << expr2->u.integerLit.value;
+                expr->u.integerLit.value = value << value2;
                 break;
             case T_SHR:
-                expr->u.integerLit.value = expr->u.integerLit.value >> expr2->u.integerLit.value;
+                expr->u.integerLit.value = value >> value2;
                 break;
             default:
                 /* not reached */
@@ -871,14 +911,15 @@ static ParseTreeNode *ParseExpr9(ParseContext *c)
     int tkn;
     expr = ParseExpr10(c);
     while ((tkn = GetToken(c)) == '+' || tkn == '-') {
+        VMVALUE value, value2;
         expr2 = ParseExpr10(c);
-        if (IsIntegerLit(expr) && IsIntegerLit(expr2)) {
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2)) {
             switch (tkn) {
             case '+':
-                expr->u.integerLit.value = expr->u.integerLit.value + expr2->u.integerLit.value;
+                expr->u.integerLit.value = value + value2;
                 break;
             case '-':
-                expr->u.integerLit.value = expr->u.integerLit.value - expr2->u.integerLit.value;
+                expr->u.integerLit.value = value - value2;
                 break;
             default:
                 /* not reached */
@@ -909,25 +950,26 @@ static ParseTreeNode *ParseExpr9(ParseContext *c)
 /* ParseExpr10 - handle the '*', '/' and '%' operators */
 static ParseTreeNode *ParseExpr10(ParseContext *c)
 {
-    ParseTreeNode *node, *node2;
+    ParseTreeNode *expr, *expr2;
     int tkn;
-    node = ParseExpr11(c);
+    expr = ParseExpr11(c);
     while ((tkn = GetToken(c)) == '*' || tkn == '/' || tkn == '%') {
-        node2 = ParseExpr11(c);
-        if (IsIntegerLit(node) && IsIntegerLit(node2)) {
+        VMVALUE value, value2;
+        expr2 = ParseExpr11(c);
+        if (IsIntegerLit(expr, &value) && IsIntegerLit(expr2, &value2)) {
             switch (tkn) {
             case '*':
-                node->u.integerLit.value = node->u.integerLit.value * node2->u.integerLit.value;
+                expr->u.integerLit.value = value * value2;
                 break;
             case '/':
-                if (node2->u.integerLit.value == 0)
+                if (expr2->u.integerLit.value == 0)
                     ParseError(c, "division by zero in constant expression");
-                node->u.integerLit.value = node->u.integerLit.value / node2->u.integerLit.value;
+                expr->u.integerLit.value = value / value2;
                 break;
             case '%':
-                if (node2->u.integerLit.value == 0)
+                if (value2 == 0)
                     ParseError(c, "division by zero in constant expression");
-                node->u.integerLit.value = node->u.integerLit.value % node2->u.integerLit.value;
+                expr->u.integerLit.value = value % value2;
                 break;
             default:
                 /* not reached */
@@ -951,17 +993,18 @@ static ParseTreeNode *ParseExpr10(ParseContext *c)
                 op = 0;
                 break;
             }
-            node = MakeBinaryOpNode(c, op, node, node2);
+            expr = MakeBinaryOpNode(c, op, expr, expr2);
         }
     }
     SaveToken(c, tkn);
-    return node;
+    return expr;
 }
 
 /* ParseExpr11 - handle unary operators */
 static ParseTreeNode *ParseExpr11(ParseContext *c)
 {
     ParseTreeNode *node;
+    VMVALUE value;
     int tkn;
     switch (tkn = GetToken(c)) {
     case '+':
@@ -969,22 +1012,22 @@ static ParseTreeNode *ParseExpr11(ParseContext *c)
         break;
     case '-':
         node = ParsePrimary(c);
-        if (IsIntegerLit(node))
-            node->u.integerLit.value = -node->u.integerLit.value;
+        if (IsIntegerLit(node, &value))
+            node->u.integerLit.value = -value;
         else
             node = MakeUnaryOpNode(c, OP_NEG, node);
         break;
     case '!':
         node = ParsePrimary(c);
-        if (IsIntegerLit(node))
-            node->u.integerLit.value = !node->u.integerLit.value;
+        if (IsIntegerLit(node, &value))
+            node->u.integerLit.value = !value;
         else
             node = MakeUnaryOpNode(c, OP_NOT, node);
         break;
     case '~':
         node = ParsePrimary(c);
-        if (IsIntegerLit(node))
-            node->u.integerLit.value = ~node->u.integerLit.value;
+        if (IsIntegerLit(node, &value))
+            node->u.integerLit.value = ~value;
         else
             node = MakeUnaryOpNode(c, OP_BNOT, node);
         break;
@@ -1228,7 +1271,7 @@ static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name)
 
     /* handle global symbols */
     else if ((symbol = FindSymbol(c, c->token)) != NULL) {
-        if (IsConstant(symbol)) {
+        if (symbol->storageClass == SC_CONSTANT) {
             node->nodeType = NodeTypeIntegerLit;
             node->u.integerLit.value = symbol->v.value;
         }
@@ -1346,14 +1389,20 @@ void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent)
     }
 }
 
-/* IsConstant - check to see if the value of a symbol is a constant */
-int IsConstant(Symbol *symbol)
-{
-    return symbol->storageClass == SC_CONSTANT;
-}
-
 /* IsIntegerLit - check to see if a node is an integer literal */
-static int IsIntegerLit(ParseTreeNode *node)
+static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue)
 {
-    return node->nodeType == NodeTypeIntegerLit;
+    int result = VMTRUE;
+    switch (node->nodeType) {
+    case NodeTypeIntegerLit:
+        *pValue = node->u.integerLit.value;
+        break;
+    case NodeTypeStringLit:
+        *pValue = node->u.stringLit.string->offset;
+        break;
+    default:
+        result = VMFALSE;
+        break;
+    }
+    return result;
 }

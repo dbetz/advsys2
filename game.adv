@@ -1,3 +1,5 @@
+var initialLocation = livingroom;
+
 object location {
 }
 
@@ -43,7 +45,14 @@ north:          livingroom;
 
 def main()
 {
-    print "Hello, world!";
+    print storage_room.west;
+    print hallway.east;
+    print hallway.north;
+    print hallway.south;
+    print kitchen.south;
+    print kitchen.west;
+    print livingroom.description;
+    print initialLocation;
 }
 
  

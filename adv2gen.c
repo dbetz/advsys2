@@ -40,13 +40,13 @@ static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
 /* code_functiondef - generate code for a function definition */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
 {
-    c->codeBase = c->codeFree;
+    uint8_t *base = c->codeFree;
     putcbyte(c, OP_FRAME);
     putcbyte(c, expr->u.functionDef.locals.count + 1);
     code_statement(c, expr->u.functionDef.body);
     putcbyte(c, OP_RETURN);
-    *pLength = c->codeFree - c->codeBase;
-    return c->codeBase;
+    *pLength = c->codeFree - base;
+    return base;
 }
 
 /* code_lvalue - generate code for an l-value expression */
@@ -555,6 +555,7 @@ static int codeaddr(ParseContext *c)
 int putcbyte(ParseContext *c, int b)
 {
     int addr = codeaddr(c);
+    printf("%04x %02x\n", addr, b);
     if (c->codeFree >= c->codeTop)
         Abort(c, "insufficient memory");
     *c->codeFree++ = b;

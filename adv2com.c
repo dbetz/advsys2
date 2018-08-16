@@ -14,6 +14,8 @@
 
 static void WriteImage(ParseContext *c, char *name);
 
+static void PrintStrings(ParseContext *c);
+
 int main(int argc, char *argv[])
 {
     ParseContext context;
@@ -61,6 +63,7 @@ int main(int argc, char *argv[])
     ParseDeclarations(c);
     
     PrintSymbols(c);
+    PrintStrings(c);
     
     WriteImage(c, outputFile);
     
@@ -283,7 +286,7 @@ String *AddString(ParseContext *c, char *value)
     /* allocate the string structure */
     size = sizeof(String) + strlen(value);
     str = (String *)LocalAlloc(c, size);
-    str->offset = c->stringBuf - c->stringFree;
+    str->offset = c->stringFree - c->stringBuf;
     strcpy((char *)c->stringFree, value);
     c->stringFree += strlen(value) + 1;
     str->next = c->strings;
@@ -291,6 +294,13 @@ String *AddString(ParseContext *c, char *value)
 
     /* return the string table entry */
     return str;
+}
+
+static void PrintStrings(ParseContext *c)
+{
+    String *str;
+    for (str = c->strings; str != NULL; str = str->next)
+        printf("%d '%s'\n", str->offset, c->stringBuf + str->offset);
 }
 
 /* LocalAlloc - allocate memory from the local heap */
