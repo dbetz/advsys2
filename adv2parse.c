@@ -552,6 +552,14 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
         case '$':
             needNewline = VMFALSE;
             break;
+        case '#':
+            op = LocalAlloc(c, sizeof(PrintOp));
+            op->trap = TRAP_PrintStr;
+            op->expr = ParseExpr(c);
+            op->next = NULL;
+            *pNext = op;
+            pNext = &op->next;
+            break;
         default:
             needNewline = VMTRUE;
             SaveToken(c, tkn);

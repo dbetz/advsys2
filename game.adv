@@ -51,7 +51,7 @@ def main()
     print hallway.south;
     print kitchen.south;
     print kitchen.west;
-    print livingroom.description;
+    print #livingroom.description;
     print initialLocation;
 }
 
