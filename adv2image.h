@@ -101,7 +101,10 @@ fp -> arg 1
 #define OP_DADDR        0x2a    /* load the address of an object in data space */
 #define OP_PADDR        0x2b    /* load the address of an object property */
 #define OP_CLASS        0x2c    /* load the class of an object */
-#define OP_THROW        0x2d    /* throw an exception */
+#define OP_TRY          0x2d    /* enter try code */
+#define OP_CATCH        0x2e    /* enter catch code */
+#define OP_CEXIT        0x2f    /* exit catch code */
+#define OP_THROW        0x30    /* throw an exception */
 
 /* VM trap codes */
 enum {

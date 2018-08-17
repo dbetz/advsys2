@@ -61,6 +61,7 @@ static ParseTreeNode *MakeAssignmentOpNode(ParseContext *c, int op, ParseTreeNod
 static ParseTreeNode *NewParseTreeNode(ParseContext *c, int type);
 static void InitLocalSymbolTable(LocalSymbolTable *table);
 static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset);
+static LocalSymbol *MakeLocalSymbol(ParseContext *c, const char *name, int offset);
 static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
 static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue);
@@ -291,6 +292,8 @@ static ParseTreeNode *ParseFunction(ParseContext *c)
     c->currentFunction = node;
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
+    c->trySymbols = NULL;
+    c->currentTryDepth = 0;
     c->block = NULL;
     
     return ParseFunctionBody(c, node, 0);
@@ -304,6 +307,8 @@ static ParseTreeNode *ParseMethod(ParseContext *c)
     c->currentFunction = node;
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
+    c->trySymbols = NULL;
+    c->currentTryDepth = 0;
     c->block = NULL;
     
     AddLocalSymbol(c, &node->u.functionDef.arguments, "self", 0);
@@ -532,16 +537,25 @@ static ParseTreeNode *ParseTry(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeTry);
     int tkn;
-    
+        
     FRequire(c, '{');
     node->u.tryStatement.statement = ParseBlock(c);
     
     if ((tkn = GetToken(c)) == T_CATCH) {
+        LocalSymbol *sym;
+        if (++c->currentTryDepth > c->currentFunction->u.functionDef.maximumTryDepth)
+            c->currentFunction->u.functionDef.maximumTryDepth = c->currentTryDepth;
         FRequire(c, '(');
         FRequire(c, T_IDENTIFIER);
+        sym = MakeLocalSymbol(c, c->token, c->currentFunction->u.functionDef.locals.count + c->currentTryDepth - 1);
+        sym->next = c->trySymbols;
+        c->trySymbols = sym;
         FRequire(c, ')');
         FRequire(c, '{');
         node->u.tryStatement.catchStatement = ParseBlock(c);
+        sym = c->trySymbols;
+        c->trySymbols = sym->next;
+        --c->currentTryDepth;
     }
     else {
         SaveToken(c, tkn);
@@ -557,7 +571,7 @@ static ParseTreeNode *ParseTry(ParseContext *c)
     
     if (!node->u.tryStatement.catchStatement && !node->u.tryStatement.finallyStatement)
         ParseError(c, "try requires either a catch or a finally clause");
-    
+            
     return node;
 }
 
@@ -1319,9 +1333,20 @@ static ParseTreeNode *ParseSimplePrimary(ParseContext *c)
 static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeGlobalSymbolRef);
-    LocalSymbol *localSymbol;
+    LocalSymbol *localSymbol = NULL;
     Symbol *symbol;
 
+    /* handle references to try/catch symbols */
+    if (c->currentFunction) {
+        for (localSymbol = c->trySymbols; localSymbol != NULL; localSymbol = localSymbol->next) {
+            if (strcmp(name, localSymbol->name) == 0) {
+                node->nodeType = NodeTypeLocalSymbolRef;
+                node->u.localSymbolRef.symbol = localSymbol;
+                return node;
+            }
+        }
+    }
+    
     /* handle local variables within a function */
     if (c->currentFunction && (localSymbol = FindLocalSymbol(&c->currentFunction->u.functionDef.locals, name)) != NULL) {
         node->nodeType = NodeTypeLocalSymbolRef;
@@ -1413,21 +1438,21 @@ static void InitLocalSymbolTable(LocalSymbolTable *table)
 /* AddLocalSymbol - add a symbol to a local symbol table */
 static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset)
 {
-    size_t size = sizeof(LocalSymbol) + strlen(name);
-    LocalSymbol *sym;
-    
-    /* allocate the symbol structure */
-    sym = (LocalSymbol *)LocalAlloc(c, size);
-    memset(sym, 0, sizeof(LocalSymbol));
-    strcpy(sym->name, name);
-    sym->offset = offset;
-
-    /* add it to the symbol table */
+    LocalSymbol *sym = MakeLocalSymbol(c, name, offset);
     *table->pTail = sym;
     table->pTail = &sym->next;
     ++table->count;
-    
-    /* return the symbol */
+    return sym;
+}
+
+/* MakeLocalSymbol - allocate and initialize a local symbol structure */
+static LocalSymbol *MakeLocalSymbol(ParseContext *c, const char *name, int offset)
+{
+    size_t size = sizeof(LocalSymbol) + strlen(name);
+    LocalSymbol *sym = (LocalSymbol *)LocalAlloc(c, size);
+    memset(sym, 0, sizeof(LocalSymbol));
+    strcpy(sym->name, name);
+    sym->offset = offset;
     return sym;
 }
 

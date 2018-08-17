@@ -28,6 +28,7 @@ typedef struct {
     VMVALUE *fp;
     VMVALUE *sp;
     VMVALUE tos;
+    VMVALUE *efp;
 } Interpreter;
 
 /* stack manipulation macros */
@@ -36,6 +37,10 @@ typedef struct {
                                 StackOverflow(i);               \
                             else                                \
                                 (i)->sp -= (n);                 \
+                        } while (0)
+#define Check(i, n)     do {                                    \
+                            if ((i)->sp - (n) < (i)->stack)     \
+                                StackOverflow(i);               \
                         } while (0)
 #define CPush(i, v)     do {                                    \
                             if ((i)->sp <= (i)->stack)          \
@@ -82,6 +87,7 @@ int Execute(ImageHdr *image, int debug)
     /* initialize */    
     i->pc = i->codeBase + image->mainFunction;
     i->sp = i->fp = i->stackTop;
+    i->efp = NULL;
     
     /* put the address of a HALT on the top of the stack */
     /* codeBase[0] is zero to act as the second byte of a fake CALL instruction */
@@ -239,7 +245,7 @@ int Execute(ImageHdr *image, int debug)
             break;
         case OP_INDEX:
             tmp = Pop(i);
-            i->tos = tmp + i->tos * sizeof (VMVALUE);
+            i->tos = (VMVALUE)(i->dataBase + tmp + i->tos * sizeof (VMVALUE));
             break;
         case OP_CALL:
             ++i->pc; // skip over the argument count
@@ -247,6 +253,9 @@ int Execute(ImageHdr *image, int debug)
             i->tos = (VMVALUE)i->pc;
             i->pc = i->codeBase + tmp;
             break;
+        case OP_CATCH:
+            CPush(i, i->tos);
+            // fall through
         case OP_FRAME:
             cnt = VMCODEBYTE(i->pc++);
             tmp = (VMVALUE)i->fp;
@@ -296,52 +305,25 @@ int Execute(ImageHdr *image, int debug)
         case OP_CLASS:
             i->tos = ((ObjectHdr *)(i->dataBase + i->tos))->class;
             break;
+        case OP_TRY:
+            for (tmpw = 0, cnt = sizeof(VMWORD); --cnt >= 0; )
+                tmpw = (tmpw << 8) | VMCODEBYTE(i->pc++);
+            Check(i, 3);
+            Push(i, (VMVALUE)(i->pc + tmpw));
+            Push(i, (VMVALUE)i->fp);
+            Push(i, (VMVALUE)i->efp);
+            i->efp = i->sp;
+            break;
+        case OP_CEXIT:
+            break;
+        case OP_THROW:
+            break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
             break;
         }
     }
 }
-
-/*
-static void opCATCH(void)
-{
-    *--sp = pc;
-    *--sp = (int)(top - fp);
-    *--sp = (int)(top - efp);
-    efp = sp;
-    *--sp = NIL;
-    pc += 2;
-}
-
-static void opCDONE(void)
-{
-    register int p2;
-    p2 = *sp++;
-    efp = top - *sp++;
-    fp = top - *sp++;
-    *++sp = p2;
-}
-
-static void opTHROW(void)
-{
-    register int p2;
-    for (; efp != NULL; efp = top - *efp)
-        if (sp[1] == efp[3])
-            break;
-    if (efp) {
-        p2 = *sp;
-        sp = efp;
-        efp = top - *sp++;
-        fp = top - *sp++;
-        pc = *sp++;
-        pc = getwoperand();
-        *sp = p2;
-    }
-    else
-        error("no target for throw: %d",sp[1]);
-}
-*/
 
 static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
 {

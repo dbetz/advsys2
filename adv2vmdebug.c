@@ -69,6 +69,9 @@ OTDEF OpcodeTable[] = {
 { OP_DADDR,     "DADDR",    FMT_LONG    },
 { OP_PADDR,     "PADDR",    FMT_NONE    },
 { OP_CLASS,     "CLASS",    FMT_NONE    },
+{ OP_TRY,       "TRY",      FMT_BR      },
+{ OP_CATCH,     "CATCH",    FMT_NONE    },
+{ OP_CEXIT,     "CEXIT",    FMT_NONE    },
 { OP_THROW,     "THROW",    FMT_NONE    },
 { 0,            NULL,       0           }
 };

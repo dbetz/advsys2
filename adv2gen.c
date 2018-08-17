@@ -44,7 +44,7 @@ uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
     LocalSymbol *local = expr->u.functionDef.locals.head;
     uint8_t *base = c->codeFree;
     putcbyte(c, OP_FRAME);
-    putcbyte(c, expr->u.functionDef.locals.count + 1);
+    putcbyte(c, expr->u.functionDef.locals.count + expr->u.functionDef.maximumTryDepth + 1);
     while (local) {
         if (local->initialValue) {
             putcbyte(c, OP_LADDR);
@@ -258,12 +258,17 @@ static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBre
 /* code_try - generate code for a 'try/catch/finally' statement */
 static void code_try(ParseContext *c, ParseTreeNode *expr)
 {
-    int finally;
+    int catch, finally;
+    putcbyte(c, OP_TRY);
+    catch = putcword(c, 0);
     code_statement(c, expr->u.tryStatement.statement);
     putcbyte(c, OP_BR);
     finally = putcword(c, 0);
     if (expr->u.tryStatement.catchStatement) {
+        fixupbranch(c, catch, codeaddr(c));
+        putcbyte(c, OP_CATCH);
         code_statement(c, expr->u.tryStatement.catchStatement);
+        putcbyte(c, OP_CEXIT);
     }
     fixupbranch(c, finally, codeaddr(c));
     if (expr->u.tryStatement.finallyStatement) {

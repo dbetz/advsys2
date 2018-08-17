@@ -204,6 +204,8 @@ typedef struct {
     String *strings;                                /* parse - string constants */
     Symbol *currentObjectSymbol;                    /* parse - current object being parsed */
     ParseTreeNode *currentFunction;                 /* parse - current function being parsed */
+    LocalSymbol *trySymbols;                        /* parse - stack of try catch symbols */
+    int currentTryDepth;                            /* parse - current depth of try statements */
     Block *block;                                   /* generate - current loop block */
     int propertyCount;                              /* property count */
     uint8_t codeBuf[MAXCODE];                       /* code buffer */
@@ -285,6 +287,7 @@ struct ParseTreeNode {
         struct {
             LocalSymbolTable arguments;
             LocalSymbolTable locals;
+            int maximumTryDepth;
             ParseTreeNode *body;
         } functionDef;
         struct {

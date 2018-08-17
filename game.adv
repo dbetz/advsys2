@@ -53,6 +53,10 @@ def main()
     print kitchen.west;
     print #livingroom.description;
     print initialLocation;
+    print livingroom[0];
+    print livingroom[1];
+    print livingroom[2];
+    print livingroom[3];
 }
 
  
