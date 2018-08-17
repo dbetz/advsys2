@@ -245,7 +245,7 @@ int Execute(ImageHdr *image, int debug)
             ++i->pc; // skip over the argument count
             tmp = i->tos;
             i->tos = (VMVALUE)i->pc;
-            i->pc = (uint8_t *)tmp;
+            i->pc = i->codeBase + tmp;
             break;
         case OP_FRAME:
             cnt = VMCODEBYTE(i->pc++);
@@ -283,30 +283,18 @@ int Execute(ImageHdr *image, int debug)
         case OP_SEND:
             DoSend(i);
             break;
-        case OP_CADDR:
-            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
-                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
-            CPush(i, i->tos);
-            i->tos = (VMVALUE)(i->codeBase + tmp);
-            break;
         case OP_DADDR:
             for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
                 tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
             CPush(i, i->tos);
             i->tos = (VMVALUE)(i->dataBase + tmp);
             break;
-        case OP_SADDR:
-            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
-                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
-            CPush(i, i->tos);
-            i->tos = (VMVALUE)(i->stringBase + tmp);
-            break;
         case OP_PADDR:
             i->tos = GetPropertyAddr(i, *i->sp, i->tos);
             Drop(i, 1);
             break;
         case OP_CLASS:
-            i->tos = (VMVALUE)(i->dataBase + ((ObjectHdr *)i->tos)->class);
+            i->tos = ((ObjectHdr *)(i->dataBase + i->tos))->class;
             break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
@@ -317,7 +305,7 @@ int Execute(ImageHdr *image, int debug)
 
 static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
 {
-    ObjectHdr *hdr = (ObjectHdr *)object;
+    ObjectHdr *hdr = (ObjectHdr *)(i->dataBase + object);
     while (object) {
         Property *property = (Property *)(hdr + 1);
         int nProperties = hdr->nProperties;
@@ -356,7 +344,7 @@ static void DoTrap(Interpreter *i, int op)
         i->tos = Pop(i);
         break;
     case TRAP_PrintStr:
-        printf("%s", (char *)i->tos);
+        printf("%s", (char *)(i->stringBase + i->tos));
         i->tos = *i->sp++;
         break;
     case TRAP_PrintInt:

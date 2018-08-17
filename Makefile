@@ -24,10 +24,10 @@ adv2vmdebug.h
 
 all:	adv2com adv2int
 
-run:    adv2int test.dat
+test:    adv2int test.dat
 	./adv2int test.dat
 
-debug:    adv2int test.dat
+testd:    adv2int test.dat
 	./adv2int -d test.dat
 
 game:    adv2int game.dat

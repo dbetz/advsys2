@@ -225,10 +225,11 @@ static void ParseObject(ParseContext *c, char *className)
         
         /* find a property copied from the class */
         for (p = (Property *)(objectHdr + 1); p < property; ++p) {
-            if (p->tag & P_SHARED)
-                ParseError(c, "can't set shared property in object definition");
-            else if (p->tag == tag)
+            if ((p->tag & ~P_SHARED) == tag) {
+                if (p->tag & P_SHARED)
+                    ParseError(c, "can't set shared property in object definition");
                 break;
+            }
         }
         
         /* add a new property if one wasn't found that was copied from the class */

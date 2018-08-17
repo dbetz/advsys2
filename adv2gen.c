@@ -297,7 +297,7 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         *pv = VT_LVALUE;
         break;
     case NodeTypeStringLit:
-        putcbyte(c, OP_SADDR);
+        putcbyte(c, OP_LIT);
         putclong(c, expr->u.stringLit.string->offset);
         *pv = VT_RVALUE;
         break;
@@ -399,12 +399,8 @@ static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         *pv = VT_LVALUE;
         break;
     case SC_OBJECT:
-        putcbyte(c, OP_DADDR);
-        putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
-        *pv = VT_RVALUE;
-        break;
     case SC_FUNCTION:
-        putcbyte(c, OP_CADDR);
+        putcbyte(c, OP_LIT);
         putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
         *pv = VT_RVALUE;
         break;
@@ -555,7 +551,6 @@ static int codeaddr(ParseContext *c)
 int putcbyte(ParseContext *c, int b)
 {
     int addr = codeaddr(c);
-    printf("%04x %02x\n", addr, b);
     if (c->codeFree >= c->codeTop)
         Abort(c, "insufficient memory");
     *c->codeFree++ = b;

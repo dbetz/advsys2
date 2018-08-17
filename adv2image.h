@@ -99,10 +99,8 @@ fp -> arg 1
 #define OP_TRAP         0x28    /* trap to handler */
 #define OP_SEND         0x29    /* send a message to an object */
 #define OP_DADDR        0x2a    /* load the address of an object in data space */
-#define OP_CADDR        0x2b    /* load the address of an object in code space */
-#define OP_SADDR        0x2c    /* load the address of an object in string space */
-#define OP_PADDR        0x2d    /* load the address of an object property */
-#define OP_CLASS        0x2e    /* load the class of an object */
+#define OP_PADDR        0x2b    /* load the address of an object property */
+#define OP_CLASS        0x2c    /* load the class of an object */
 
 /* VM trap codes */
 enum {

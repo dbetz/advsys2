@@ -45,29 +45,23 @@ def zip(a, b, c)
     var d, e;
     d = a + b;
     e = 0;
-//    if (b < c)
-//        e = b + c;
-//    else
-//        e = b - c;
-//    print d, e;
-//    for (a = 0; a < 10; ++a) {
-//        if (a > 10) break;
-//        if (a < 0) continue;
-//        e += a;
-//    }
-//    d = [a look 1, 2, 3];
-//    e = [super look 1, 2, 3];
-//    a.baz = 1;
-//    b.baz = a.zog;
+    if (b < c)
+        e = b + c;
+    else
+        e = b - c;
+    print d, e;
+    for (a = 0; a < 10; ++a) {
+        if (a > 10) break;
+        if (a < 0) continue;
+        e += a;
+    }
     print bar(10);
-//    print d, e;
-//    return d + e;
-    return 123;
+    print d, e;
+    return d + e;
 }
 
 def main()
 {
-/*
     print "Hello, world!";
     print [obj1 p1 3];
     print [obj2 p1 5];
@@ -80,6 +74,5 @@ def main()
     print ++place.p0;
     print bar(foo(10));
     print bar(foo(10));
-*/
     print zip(10, 20, 30);
 }
