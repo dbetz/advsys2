@@ -15,6 +15,7 @@ static void code_while(ParseContext *c, ParseTreeNode *expr);
 static void code_dowhile(ParseContext *c, ParseTreeNode *expr);
 static void code_for(ParseContext *c, ParseTreeNode *expr);
 static void code_return(ParseContext *c, ParseTreeNode *expr);
+static void code_try(ParseContext *c, ParseTreeNode *expr);
 static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBreak);
 static void code_block(ParseContext *c, ParseTreeNode *expr);
 static void code_exprstatement(ParseContext *c, ParseTreeNode *expr);
@@ -40,9 +41,19 @@ static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
 /* code_functiondef - generate code for a function definition */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
 {
+    LocalSymbol *local = expr->u.functionDef.locals.head;
     uint8_t *base = c->codeFree;
     putcbyte(c, OP_FRAME);
     putcbyte(c, expr->u.functionDef.locals.count + 1);
+    while (local) {
+        if (local->initialValue) {
+            putcbyte(c, OP_LADDR);
+            putcbyte(c, -local->offset - 1);
+            code_rvalue(c, local->initialValue);
+            putcbyte(c, OP_STORE);
+        }
+        local = local->next;
+    }
     code_statement(c, expr->u.functionDef.body);
     putcbyte(c, OP_RETURN);
     *pLength = c->codeFree - base;
@@ -91,6 +102,13 @@ static void code_statement(ParseContext *c, ParseTreeNode *expr)
         break;
     case NodeTypeBlock:
         code_block(c, expr);
+        break;
+    case NodeTypeTry:
+        code_try(c, expr);
+        break;
+    case NodeTypeThrow:
+        code_rvalue(c, expr->u.throwStatement.expr);
+        putcbyte(c, OP_THROW);
         break;
     case NodeTypeExpr:
         code_exprstatement(c, expr);
@@ -234,6 +252,22 @@ static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBre
         default:
             break;
         }
+    }
+}
+
+/* code_try - generate code for a 'try/catch/finally' statement */
+static void code_try(ParseContext *c, ParseTreeNode *expr)
+{
+    int finally;
+    code_statement(c, expr->u.tryStatement.statement);
+    putcbyte(c, OP_BR);
+    finally = putcword(c, 0);
+    if (expr->u.tryStatement.catchStatement) {
+        code_statement(c, expr->u.tryStatement.catchStatement);
+    }
+    fixupbranch(c, finally, codeaddr(c));
+    if (expr->u.tryStatement.finallyStatement) {
+        code_statement(c, expr->u.tryStatement.finallyStatement);
     }
 }
 

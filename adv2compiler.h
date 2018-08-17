@@ -45,6 +45,10 @@ enum {
     T_METHOD,
     T_SHARED,
     T_SUPER,
+    T_TRY,
+    T_CATCH,
+    T_FINALLY,
+    T_THROW,
     T_PRINT,
     _T_NON_KEYWORDS,
     T_LE = _T_NON_KEYWORDS, /* '<=' */
@@ -149,6 +153,7 @@ typedef struct {
 /* local symbol structure */
 struct LocalSymbol {
     LocalSymbol *next;
+    ParseTreeNode *initialValue; // not used for arguments
     int offset;
     char name[1];
 };
@@ -235,6 +240,8 @@ enum {
     NodeTypeBreak,
     NodeTypeContinue,
     NodeTypeBlock,
+    NodeTypeTry,
+    NodeTypeThrow,
     NodeTypeExpr,
     NodeTypeEmpty,
     NodeTypePrint,
@@ -305,6 +312,14 @@ struct ParseTreeNode {
         struct {
             NodeListEntry *statements;
         } blockStatement;
+        struct {
+            ParseTreeNode *statement;
+            ParseTreeNode *catchStatement;
+            ParseTreeNode *finallyStatement;
+        } tryStatement;
+        struct {
+            ParseTreeNode *expr;
+        } throwStatement;
         struct {
             ParseTreeNode *expr;
         } exprStatement;

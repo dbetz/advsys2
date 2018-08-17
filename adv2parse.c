@@ -14,13 +14,13 @@
 /* local function prototypes */
 static void ParseDef(ParseContext *c);
 static void ParseConstantDef(ParseContext *c, char *name);
-static void ParseFunctionDef(ParseContext *c, char *name);
+static void  ParseFunctionDef(ParseContext *c, char *name);
 static void ParseVar(ParseContext *c);
 static void ParseObject(ParseContext *c, char *name);
 static void ParseProperty(ParseContext *c);
 static ParseTreeNode *ParseFunction(ParseContext *c);
 static ParseTreeNode *ParseMethod(ParseContext *c);
-static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offsetma);
+static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offset);
 static ParseTreeNode *ParseIf(ParseContext *c);
 static ParseTreeNode *ParseWhile(ParseContext *c);
 static ParseTreeNode *ParseDoWhile(ParseContext *c);
@@ -29,6 +29,8 @@ static ParseTreeNode *ParseBreak(ParseContext *c);
 static ParseTreeNode *ParseContinue(ParseContext *c);
 static ParseTreeNode *ParseReturn(ParseContext *c);
 static ParseTreeNode *ParseBlock(ParseContext *c);
+static ParseTreeNode *ParseTry(ParseContext *c);
+static ParseTreeNode *ParseThrow(ParseContext *c);
 static ParseTreeNode *ParseExprStatement(ParseContext *c);
 static ParseTreeNode *ParseEmpty(ParseContext *c);
 static ParseTreeNode *ParsePrint(ParseContext *c);
@@ -322,8 +324,7 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
         SaveToken(c, tkn);
         do {
             FRequire(c, T_IDENTIFIER);
-            AddLocalSymbol(c, &node->u.functionDef.arguments, c->token, offset);
-            ++offset;
+            AddLocalSymbol(c, &node->u.functionDef.arguments, c->token, offset++);
         } while ((tkn = GetToken(c)) == ',');
     }
     Require(c, tkn, ')');
@@ -331,9 +332,15 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
     
     while ((tkn = GetToken(c)) == T_VAR) {
         do {
+            LocalSymbol *symbol;
             FRequire(c, T_IDENTIFIER);
-            AddLocalSymbol(c, &node->u.functionDef.locals, c->token, localOffset);
-            ++localOffset;
+            symbol = AddLocalSymbol(c, &node->u.functionDef.locals, c->token, localOffset++);
+            if ((tkn = GetToken(c)) == '=') {
+                symbol->initialValue = ParseExpr(c);
+            }
+            else {
+                SaveToken(c, tkn);
+            }
         } while ((tkn = GetToken(c)) == ',');
         Require(c, tkn, ';');
     }
@@ -376,6 +383,12 @@ ParseTreeNode *ParseStatement(ParseContext *c)
         break;
     case T_RETURN:
         node = ParseReturn(c);
+        break;
+    case T_TRY:
+        node = ParseTry(c);
+        break;
+    case T_THROW:
+        node = ParseThrow(c);
         break;
     case T_PRINT:
         node = ParsePrint(c);
@@ -511,6 +524,49 @@ static ParseTreeNode *ParseBlock(ParseContext *c)
         SaveToken(c, tkn);
         AddNodeToList(c, &pNextStatement, ParseStatement(c));
     }
+    return node;
+}
+
+/* ParseTry - parse the 'try/catch/finally' statement */
+static ParseTreeNode *ParseTry(ParseContext *c)
+{
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeTry);
+    int tkn;
+    
+    FRequire(c, '{');
+    node->u.tryStatement.statement = ParseBlock(c);
+    
+    if ((tkn = GetToken(c)) == T_CATCH) {
+        FRequire(c, '(');
+        FRequire(c, T_IDENTIFIER);
+        FRequire(c, ')');
+        FRequire(c, '{');
+        node->u.tryStatement.catchStatement = ParseBlock(c);
+    }
+    else {
+        SaveToken(c, tkn);
+    }
+    
+    if ((tkn = GetToken(c)) == T_FINALLY) {
+        FRequire(c, '{');
+        node->u.tryStatement.finallyStatement = ParseBlock(c);
+    }
+    else {
+        SaveToken(c, tkn);
+    }
+    
+    if (!node->u.tryStatement.catchStatement && !node->u.tryStatement.finallyStatement)
+        ParseError(c, "try requires either a catch or a finally clause");
+    
+    return node;
+}
+
+/* ParseThrow - parse the 'throw' statement */
+static ParseTreeNode *ParseThrow(ParseContext *c)
+{
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeThrow);
+    node->u.throwStatement.expr = ParseExpr(c);
+    FRequire(c, ';');
     return node;
 }
 

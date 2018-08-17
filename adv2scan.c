@@ -34,6 +34,10 @@ static struct {
 {   "method",   T_METHOD    },
 {   "shared",   T_SHARED    },
 {   "super",    T_SUPER     },
+{   "try",      T_TRY       },
+{   "catch",    T_CATCH     },
+{   "finally",  T_FINALLY   },
+{   "throw",    T_THROW     },
 {   "print",    T_PRINT     },
 {   NULL,       0           }
 };
@@ -609,7 +613,8 @@ void ParseError(ParseContext *c, char *fmt, ...)
     va_end(ap);
 
     /* show the context */
-    printf("  line %d\n", c->currentFile->lineNumber);
+    if (c->currentFile)
+        printf("  line %d\n", c->currentFile->lineNumber);
     printf("    %s\n", c->lineBuf);
     printf("    %*s\n", c->tokenOffset, "^");
 

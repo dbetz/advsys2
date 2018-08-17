@@ -303,6 +303,46 @@ int Execute(ImageHdr *image, int debug)
     }
 }
 
+/*
+static void opCATCH(void)
+{
+    *--sp = pc;
+    *--sp = (int)(top - fp);
+    *--sp = (int)(top - efp);
+    efp = sp;
+    *--sp = NIL;
+    pc += 2;
+}
+
+static void opCDONE(void)
+{
+    register int p2;
+    p2 = *sp++;
+    efp = top - *sp++;
+    fp = top - *sp++;
+    *++sp = p2;
+}
+
+static void opTHROW(void)
+{
+    register int p2;
+    for (; efp != NULL; efp = top - *efp)
+        if (sp[1] == efp[3])
+            break;
+    if (efp) {
+        p2 = *sp;
+        sp = efp;
+        efp = top - *sp++;
+        fp = top - *sp++;
+        pc = *sp++;
+        pc = getwoperand();
+        *sp = p2;
+    }
+    else
+        error("no target for throw: %d",sp[1]);
+}
+*/
+
 static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
 {
     ObjectHdr *hdr = (ObjectHdr *)(i->dataBase + object);
