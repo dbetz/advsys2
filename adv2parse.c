@@ -501,13 +501,17 @@ static ParseTreeNode *ParseFor(ParseContext *c)
 /* ParseBreak - parse a 'break' statement */
 static ParseTreeNode *ParseBreak(ParseContext *c)
 {
-    return NewParseTreeNode(c, NodeTypeBreak);
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeBreak);
+    FRequire(c, ';');
+    return node;
 }
 
 /* ParseContinue - parse a 'continue' statement */
 static ParseTreeNode *ParseContinue(ParseContext *c)
 {
-    return NewParseTreeNode(c, NodeTypeContinue);
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeContinue);
+    FRequire(c, ';');
+    return node;
 }
 
 /* ParseReturn - parse a 'return' statement */

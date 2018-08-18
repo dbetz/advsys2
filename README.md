@@ -3,8 +3,8 @@ A major update to AdvSys switching to a C-like syntax.
 
 - Implement the finally clause.
 - Add global array declarations and initialization.
-- Add bytecode assembler to access the TRAP instruction.
 - Fix bug where data objects can get zero as their address.
+- Add character constants.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.
 - Need a way to parse user input.
