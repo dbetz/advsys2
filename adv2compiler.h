@@ -30,7 +30,8 @@ typedef struct NodeListEntry NodeListEntry;
 enum {
     T_NONE,
     _T_FIRST_KEYWORD = 0x100,
-    T_DEF = _T_FIRST_KEYWORD,
+    T_INCLUDE = _T_FIRST_KEYWORD,
+    T_DEF,
     T_VAR,
     T_IF,
     T_ELSE,

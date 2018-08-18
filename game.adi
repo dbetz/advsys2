@@ -1,0 +1,58 @@
+object location {
+}
+
+property north, south, east, west;
+property description;
+
+def getp(obj, prop)
+{
+    var value;
+    try {
+        value = obj.(prop);
+    }
+    catch (e) {
+        value = 0;
+    }
+    return value;
+}
+
+def getc()
+{
+    asm {
+        TRAP 0
+    }
+}
+
+def main()
+{
+    var loc = initialLocation;
+    var newloc, ch;
+    
+    print #loc.description;
+    
+    while (1) {
+        if ((ch = getc()) != 10) {
+            if (ch == 110)
+                newloc = getp(loc, north);
+            else if (ch == 115)
+                newloc = getp(loc, south);
+            else if (ch == 101)
+                newloc = getp(loc, east);
+            else if (ch == 119)
+                newloc = getp(loc, west);
+            else if (ch == 113)
+                break;
+            else
+                newloc = -1;
+            
+            if (newloc == -1)
+                print "Huh?";
+            else if (newloc == 0)
+                print "You can't go that way.";
+            else if (newloc != loc) {
+                loc = newloc;
+                print #loc.description;
+            }
+        }
+    }
+}

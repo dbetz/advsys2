@@ -12,6 +12,7 @@
 #include "adv2vmdebug.h"
 
 /* local function prototypes */
+static void ParseInclude(ParseContext *c);
 static void ParseDef(ParseContext *c);
 static void ParseConstantDef(ParseContext *c, char *name);
 static void  ParseFunctionDef(ParseContext *c, char *name);
@@ -76,6 +77,9 @@ void ParseDeclarations(ParseContext *c)
     /* parse declarations */
     while ((tkn = GetToken(c)) != T_EOF) {
         switch (tkn) {
+        case T_INCLUDE:
+            ParseInclude(c);
+            break;
         case T_DEF:
             ParseDef(c);
             break;
@@ -99,6 +103,17 @@ void ParseDeclarations(ParseContext *c)
             break;
         }
     }
+}
+
+/* ParseInclude - parse the 'INCLUDE' statement */
+static void ParseInclude(ParseContext *c)
+{
+    char name[MAXTOKEN];
+    FRequire(c, T_STRING);
+    strcpy(name, c->token);
+    FRequire(c, ';');
+    if (!PushFile(c, name))
+        ParseError(c, "include file not found: %s", name);
 }
 
 /* ParseDef - parse the 'def' statement */

@@ -19,6 +19,7 @@ static struct {
 } ktab[] = {
 
 /* these must be in the same order as the int enum */
+{   "include",  T_INCLUDE   },
 {   "def",      T_DEF       },
 {   "var",      T_VAR       },
 {   "if",       T_IF        },
