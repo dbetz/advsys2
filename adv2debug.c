@@ -97,6 +97,17 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
     case NodeTypeEmpty:
         printf("Empty\n");
         break;
+    case NodeTypeAsm:
+        {
+            uint8_t *p = node->u.asmStatement.code;
+            int length = node->u.asmStatement.length;
+            printf("Asm\n");
+            printf("%*s", indent + 2, "");
+            while (--length >= 0)
+                printf(" %02x", *p++);
+            putchar('\n');
+        }
+        break;
     case NodeTypePrint:
         printf("Print\n");
         PrintPrintOpList(c, node->u.printStatement.ops, indent + 2);

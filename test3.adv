@@ -18,8 +18,18 @@ def getp(obj, prop)
     return value;
 }
 
+def getc()
+{
+    asm {
+        TRAP 0
+    }
+}
+
 def main()
 {
+    var ch;
     print getp(foo, p1);
     print getp(foo, p2);
+    while ((ch = getc()) != 10)
+        print ch;
 }

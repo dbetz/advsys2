@@ -49,6 +49,7 @@ enum {
     T_CATCH,
     T_FINALLY,
     T_THROW,
+    T_ASM,
     T_PRINT,
     _T_NON_KEYWORDS,
     T_LE = _T_NON_KEYWORDS, /* '<=' */
@@ -245,6 +246,7 @@ enum {
     NodeTypeTry,
     NodeTypeThrow,
     NodeTypeExpr,
+    NodeTypeAsm,
     NodeTypeEmpty,
     NodeTypePrint,
     NodeTypeGlobalSymbolRef,
@@ -327,6 +329,10 @@ struct ParseTreeNode {
         struct {
             ParseTreeNode *expr;
         } exprStatement;
+        struct {
+            uint8_t *code;
+            int length;
+        } asmStatement;
         struct {
             PrintOp *ops;
         } printStatement;
@@ -419,6 +425,8 @@ void ParseError(ParseContext *c, char *fmt, ...);
 /* adv2gen.c */
 uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength);
 int putcbyte(ParseContext *c, int v);
+int putcword(ParseContext *c, VMWORD v);
+int putclong(ParseContext *c, VMVALUE v);
 void wr_clong(ParseContext *c, VMUVALUE off, VMVALUE v);
 
 #endif

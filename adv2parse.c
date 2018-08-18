@@ -33,9 +33,10 @@ static ParseTreeNode *ParseTry(ParseContext *c);
 static ParseTreeNode *ParseThrow(ParseContext *c);
 static ParseTreeNode *ParseExprStatement(ParseContext *c);
 static ParseTreeNode *ParseEmpty(ParseContext *c);
+static ParseTreeNode *ParseAsm(ParseContext *c);
 static ParseTreeNode *ParsePrint(ParseContext *c);
 static VMVALUE ParseIntegerLiteralExpr(ParseContext *c);
-static VMVALUE ParseConstantLiteralExpr(ParseContext *c, VMVALUE offset);
+static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset);
 static ParseTreeNode *ParseExpr(ParseContext *c);
 static ParseTreeNode *ParseExpr1(ParseContext *c);
 static ParseTreeNode *ParseExpr2(ParseContext *c);
@@ -159,7 +160,7 @@ static void ParseVar(ParseContext *c)
         AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
         if ((tkn = GetToken(c)) == '=') {
             VMVALUE offset = c->dataFree - c->dataBuf;
-            *(VMVALUE *)c->dataFree = ParseConstantLiteralExpr(c, offset);
+            *(VMVALUE *)c->dataFree = ParseConstantLiteralExpr(c, FT_DATA, offset);
         }
         else {
             SaveToken(c, tkn);
@@ -260,7 +261,7 @@ static void ParseObject(ParseContext *c, char *className)
         else {
             VMVALUE offset = (uint8_t *)&p->value - c->dataBuf;
             SaveToken(c, tkn);
-            p->value = ParseConstantLiteralExpr(c, offset);
+            p->value = ParseConstantLiteralExpr(c, FT_DATA, offset);
         }
 
         FRequire(c, ';');
@@ -394,6 +395,9 @@ ParseTreeNode *ParseStatement(ParseContext *c)
         break;
     case T_THROW:
         node = ParseThrow(c);
+        break;
+    case T_ASM:
+        node = ParseAsm(c);
         break;
     case T_PRINT:
         node = ParsePrint(c);
@@ -600,6 +604,60 @@ static ParseTreeNode *ParseEmpty(ParseContext *c)
     return NewParseTreeNode(c, NodeTypeEmpty);
 }
 
+/* ParseAsm - parse the 'ASM ... END ASM' statement */
+static ParseTreeNode *ParseAsm(ParseContext *c)
+{
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeAsm);
+    uint8_t *start = c->codeFree;
+    int length, tkn;
+    OTDEF *def;
+    
+    FRequire(c, '{');
+    
+    /* parse each assembly instruction */
+    while ((tkn = GetToken(c)) != '}') {
+    
+        /* get the opcode */
+        Require(c, tkn, T_IDENTIFIER);
+            
+        /* assemble a single instruction */
+        for (def = OpcodeTable; def->name != NULL; ++def) {
+            if (strcasecmp(c->token, def->name) == 0) {
+                putcbyte(c, def->code);
+                switch (def->fmt) {
+                case FMT_NONE:
+                    break;
+                case FMT_BYTE:
+                case FMT_SBYTE:
+                    putcbyte(c, ParseIntegerLiteralExpr(c));
+                    break;
+                case FMT_LONG:
+                    putclong(c, ParseIntegerLiteralExpr(c));
+                    break;
+                case FMT_BR:
+                    putcword(c, ParseIntegerLiteralExpr(c));
+                    break;
+                default:
+                    ParseError(c, "instruction not currently supported");
+                    break;
+                }
+                break;
+            }
+        }
+        if (!def->name)
+            ParseError(c, "undefined opcode");
+    }
+    
+    /* store the code */
+    length = c->codeFree - start;
+    node->u.asmStatement.code = LocalAlloc(c, length);
+    node->u.asmStatement.length = length;
+    memcpy(node->u.asmStatement.code, start, length);
+    c->codeFree = start;
+    
+    return node;
+}
+
 /* ParsePrint - handle the 'PRINT' statement */
 static ParseTreeNode *ParsePrint(ParseContext *c)
 {
@@ -688,7 +746,7 @@ static VMVALUE ParseIntegerLiteralExpr(ParseContext *c)
 }
 
 /* ParseConstantLiteralExpr - parse a constant literal expression (including objects and functions) */
-static VMVALUE ParseConstantLiteralExpr(ParseContext *c, VMVALUE offset)
+static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset)
 {
     ParseTreeNode *expr = ParseExpr(c);
     VMVALUE value = NIL;
@@ -703,7 +761,7 @@ static VMVALUE ParseConstantLiteralExpr(ParseContext *c, VMVALUE offset)
         switch (expr->u.symbolRef.symbol->storageClass) {
         case SC_OBJECT:
         case SC_FUNCTION:
-            value = AddSymbolRef(c, expr->u.symbolRef.symbol, FT_DATA, offset);
+            value = AddSymbolRef(c, expr->u.symbolRef.symbol, fixupType, offset);
             break;
         default:
             ParseError(c, "expecting a constant expression, object, or function");

@@ -10,19 +10,6 @@
 #include "adv2vmdebug.h"
 #include "adv2image.h"
 
-/* instruction output formats */
-#define FMT_NONE        0
-#define FMT_BYTE        1
-#define FMT_SBYTE       2
-#define FMT_LONG        3
-#define FMT_BR          4
-
-typedef struct {
-    int code;
-    char *name;
-    int fmt;
-} OTDEF;
-
 OTDEF OpcodeTable[] = {
 { OP_HALT,      "HALT",     FMT_NONE    },
 { OP_BRT,       "BRT",      FMT_BR      },

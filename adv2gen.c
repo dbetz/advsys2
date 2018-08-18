@@ -18,7 +18,8 @@ static void code_return(ParseContext *c, ParseTreeNode *expr);
 static void code_try(ParseContext *c, ParseTreeNode *expr);
 static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBreak);
 static void code_block(ParseContext *c, ParseTreeNode *expr);
-static void code_exprstatement(ParseContext *c, ParseTreeNode *expr);
+static void code_exprstatement(ParseContext *c, ParseTreeNode *node);
+static void code_asm(ParseContext *c, ParseTreeNode *node);
 static void code_print(ParseContext *c, ParseTreeNode *expr);
 static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL *pv);
@@ -34,8 +35,6 @@ static void PushBlock(ParseContext *c, Block *block, BlockType type);
 static void PopBlock(ParseContext *c);
 
 static int codeaddr(ParseContext *c);
-static int putcword(ParseContext *c, VMWORD v);
-static int putclong(ParseContext *c, VMVALUE v);
 static void fixupbranch(ParseContext *c, VMUVALUE chn, VMUVALUE val);
 
 /* code_functiondef - generate code for a function definition */
@@ -79,6 +78,7 @@ static void code_rvalue(ParseContext *c, ParseTreeNode *expr)
 /* code_statement - generate code for a statement parse tree */
 static void code_statement(ParseContext *c, ParseTreeNode *expr)
 {
+    printf("coding %d\n", expr->nodeType);
     switch (expr->nodeType) {
     case NodeTypeIf:
         code_if(c, expr);
@@ -114,6 +114,9 @@ static void code_statement(ParseContext *c, ParseTreeNode *expr)
     case NodeTypeExpr:
         code_exprstatement(c, expr);
         break;
+    case NodeTypeAsm:
+        code_asm(c, expr);
+        break;
     case NodeTypeEmpty:
         /* nothing to generate */
         break;
@@ -145,7 +148,6 @@ static void code_if(ParseContext *c, ParseTreeNode *expr)
     }
 }
 
-
 /* code_while - generate code for an 'while' statement */
 static void code_while(ParseContext *c, ParseTreeNode *expr)
 {
@@ -154,7 +156,7 @@ static void code_while(ParseContext *c, ParseTreeNode *expr)
     PushBlock(c, &block, BLOCK_WHILE);
     block.cont = block.nxt = codeaddr(c);
     block.contDefined = VMTRUE;
-    code_statement(c, expr->u.whileStatement.test);
+    code_rvalue(c, expr->u.whileStatement.test);
     putcbyte(c, OP_BRF);
     block.end = putcword(c, 0);
     code_statement(c, expr->u.whileStatement.body);
@@ -176,7 +178,7 @@ static void code_dowhile(ParseContext *c, ParseTreeNode *expr)
     block.end = 0;
     code_statement(c, expr->u.doWhileStatement.body);
     fixupbranch(c, block.cont, codeaddr(c));
-    code_statement(c, expr->u.doWhileStatement.test);
+    code_rvalue(c, expr->u.doWhileStatement.test);
     inst = putcbyte(c, OP_BRT);
     putcword(c, block.nxt - inst - 1 - sizeof(VMWORD));
     fixupbranch(c, block.end, codeaddr(c));
@@ -296,6 +298,16 @@ static void code_exprstatement(ParseContext *c, ParseTreeNode *expr)
 {
     code_rvalue(c, expr->u.exprStatement.expr);
     putcbyte(c, OP_DROP);
+}
+
+/* code_asm - generate code for an ASM statement */
+static void code_asm(ParseContext *c, ParseTreeNode *node)
+{
+    int length = node->u.asmStatement.length;
+    if (c->codeFree + length >= c->codeTop)
+        Abort(c, "Bytecode buffer overflow");
+    memcpy(c->codeFree, node->u.asmStatement.code, length);
+    c->codeFree += length;
 }
 
 /* CallHandler - compile a call to a runtime print function */
@@ -491,9 +503,11 @@ static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 /* code_arguments - code function arguments (in reverse order) */
 static void code_arguments(ParseContext *c, NodeListEntry *args)
 {
-    if (args->next)
-        code_arguments(c, args->next);
-    code_rvalue(c, args->node);
+    if (args) {
+        if (args->next)
+            code_arguments(c, args->next);
+        code_rvalue(c, args->node);
+    }
 }
 
 /* code_call - code a function call */
@@ -602,7 +616,7 @@ int putcbyte(ParseContext *c, int b)
 }
 
 /* putcword - put a code word into the code buffer */
-static int putcword(ParseContext *c, VMWORD v)
+int putcword(ParseContext *c, VMWORD v)
 {
     int addr = codeaddr(c);
     if (c->codeFree + sizeof(VMWORD) > c->codeTop)
@@ -613,7 +627,7 @@ static int putcword(ParseContext *c, VMWORD v)
 }
 
 /* putclong - put a code word into the code buffer */
-static int putclong(ParseContext *c, VMVALUE v)
+int putclong(ParseContext *c, VMVALUE v)
 {
     int addr = codeaddr(c);
     if (c->codeFree + sizeof(VMVALUE) > c->codeTop)

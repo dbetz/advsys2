@@ -38,6 +38,7 @@ static struct {
 {   "catch",    T_CATCH     },
 {   "finally",  T_FINALLY   },
 {   "throw",    T_THROW     },
+{   "asm",      T_ASM       },
 {   "print",    T_PRINT     },
 {   NULL,       0           }
 };
