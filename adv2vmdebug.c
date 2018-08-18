@@ -63,15 +63,14 @@ OTDEF OpcodeTable[] = {
 { OP_DROP,      "DROP",     FMT_NONE    },
 { OP_DUP,       "DUP",      FMT_NONE    },
 { OP_TUCK,      "TUCK",     FMT_NONE    },
-{ OP_NATIVE,    "NATIVE",   FMT_LONG    },
+{ OP_SWAP,      "SWAP",     FMT_NONE    },
 { OP_TRAP,      "TRAP",     FMT_BYTE    },
 { OP_SEND,      "SEND",     FMT_BYTE    },
 { OP_DADDR,     "DADDR",    FMT_LONG    },
 { OP_PADDR,     "PADDR",    FMT_NONE    },
 { OP_CLASS,     "CLASS",    FMT_NONE    },
 { OP_TRY,       "TRY",      FMT_BR      },
-{ OP_CATCH,     "CATCH",    FMT_NONE    },
-{ OP_CEXIT,     "CEXIT",    FMT_NONE    },
+{ OP_TRYEXIT,   "TRYEXIT",  FMT_NONE    },
 { OP_THROW,     "THROW",    FMT_NONE    },
 { 0,            NULL,       0           }
 };

@@ -51,6 +51,7 @@ uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
             putcbyte(c, -local->offset - 1);
             code_rvalue(c, local->initialValue);
             putcbyte(c, OP_STORE);
+            putcbyte(c, OP_DROP);
         }
         local = local->next;
     }
@@ -262,13 +263,17 @@ static void code_try(ParseContext *c, ParseTreeNode *expr)
     putcbyte(c, OP_TRY);
     catch = putcword(c, 0);
     code_statement(c, expr->u.tryStatement.statement);
+    putcbyte(c, OP_TRYEXIT);
     putcbyte(c, OP_BR);
     finally = putcword(c, 0);
     if (expr->u.tryStatement.catchStatement) {
         fixupbranch(c, catch, codeaddr(c));
-        putcbyte(c, OP_CATCH);
+        putcbyte(c, OP_LADDR);
+        putcbyte(c, -expr->u.tryStatement.catchSymbol->offset - 1);
+        putcbyte(c, OP_SWAP);
+        putcbyte(c, OP_STORE);
+        putcbyte(c, OP_DROP);
         code_statement(c, expr->u.tryStatement.catchStatement);
-        putcbyte(c, OP_CEXIT);
     }
     fixupbranch(c, finally, codeaddr(c));
     if (expr->u.tryStatement.finallyStatement) {

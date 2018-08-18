@@ -156,7 +156,8 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         printf("FunctionCall: %d\n", node->u.functionCall.argc);
         printf("%*sfcn\n", indent + 2, "");
         PrintNode(c, node->u.functionCall.fcn, indent + 4);
-        PrintNodeList(c, node->u.functionCall.args, indent + 2);
+        printf("%*sargs\n", indent + 2, "");
+        PrintNodeList(c, node->u.functionCall.args, indent + 4);
         break;
     case NodeTypeSend:
         printf("Send\n");

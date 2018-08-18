@@ -317,6 +317,7 @@ struct ParseTreeNode {
         } blockStatement;
         struct {
             ParseTreeNode *statement;
+            LocalSymbol *catchSymbol;
             ParseTreeNode *catchStatement;
             ParseTreeNode *finallyStatement;
         } tryStatement;

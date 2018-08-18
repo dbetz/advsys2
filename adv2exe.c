@@ -54,8 +54,9 @@ typedef struct {
 #define Drop(i, n)      ((i)->sp += (n))
 
 /* prototypes for local functions */
-static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE property);
+static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE property, VMVALUE *pValue);
 static void DoSend(Interpreter *i);
+static void Throw(Interpreter *i, VMVALUE value);
 static void DoTrap(Interpreter *i, int op);
 static void StackOverflow(Interpreter *i);
 static void Abort(Interpreter *i, const char *fmt, ...);
@@ -253,9 +254,6 @@ int Execute(ImageHdr *image, int debug)
             i->tos = (VMVALUE)i->pc;
             i->pc = i->codeBase + tmp;
             break;
-        case OP_CATCH:
-            CPush(i, i->tos);
-            // fall through
         case OP_FRAME:
             cnt = VMCODEBYTE(i->pc++);
             tmp = (VMVALUE)i->fp;
@@ -282,9 +280,10 @@ int Execute(ImageHdr *image, int debug)
             i->sp[0] = i->sp[1];
             i->sp[1] = tmp;
             break;
-        case OP_NATIVE:
-            for (tmp = 0, cnt = sizeof(VMUVALUE); --cnt >= 0; )
-                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
+        case OP_SWAP:
+            tmp = i->tos;
+            i->tos = *i->sp;
+            *i->sp = tmp;
             break;
         case OP_TRAP:
             DoTrap(i, VMCODEBYTE(i->pc++));
@@ -299,8 +298,8 @@ int Execute(ImageHdr *image, int debug)
             i->tos = (VMVALUE)(i->dataBase + tmp);
             break;
         case OP_PADDR:
-            i->tos = GetPropertyAddr(i, *i->sp, i->tos);
-            Drop(i, 1);
+            if (!GetPropertyAddr(i, Pop(i), i->tos, &i->tos))
+                Throw(i, 1);
             break;
         case OP_CLASS:
             i->tos = ((ObjectHdr *)(i->dataBase + i->tos))->class;
@@ -308,15 +307,22 @@ int Execute(ImageHdr *image, int debug)
         case OP_TRY:
             for (tmpw = 0, cnt = sizeof(VMWORD); --cnt >= 0; )
                 tmpw = (tmpw << 8) | VMCODEBYTE(i->pc++);
-            Check(i, 3);
+            Check(i, 4);
+            Push(i, i->tos);
             Push(i, (VMVALUE)(i->pc + tmpw));
             Push(i, (VMVALUE)i->fp);
             Push(i, (VMVALUE)i->efp);
             i->efp = i->sp;
             break;
-        case OP_CEXIT:
+        case OP_TRYEXIT:
+            tmp = Pop(i);
+            i->fp = (VMVALUE *)Pop(i);
+            Drop(i, 1);
+            i->tos = Pop(i);
+            i->efp = (VMVALUE *)tmp;
             break;
         case OP_THROW:
+            Throw(i, i->tos);
             break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
@@ -325,21 +331,23 @@ int Execute(ImageHdr *image, int debug)
     }
 }
 
-static VMVALUE GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag)
+static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag, VMVALUE *pValue)
 {
     ObjectHdr *hdr = (ObjectHdr *)(i->dataBase + object);
     while (object) {
         Property *property = (Property *)(hdr + 1);
         int nProperties = hdr->nProperties;
         while (--nProperties >= 0) {
-            if ((property->tag & ~P_SHARED) == tag)
-                return (VMVALUE)&property->value;
+            if ((property->tag & ~P_SHARED) == tag) {
+                *pValue = (VMVALUE)&property->value;
+                return VMTRUE;
+            }
             ++property;
         }
         object = hdr->class;
         hdr = (ObjectHdr *)(i->dataBase + object);
     }
-    return NIL;
+    return VMFALSE;
 }
 
 static void DoSend(Interpreter *i)
@@ -350,8 +358,23 @@ static void DoSend(Interpreter *i)
     i->tos = (VMVALUE)i->pc;
     if (!(p = i->sp[1]))
         p = i->sp[0];
-    p = GetPropertyAddr(i, p, tmp);
-    i->pc = i->codeBase + *(VMVALUE *)p;
+    if (GetPropertyAddr(i, p, tmp, &p))
+        i->pc = i->codeBase + *(VMVALUE *)p;
+    else
+        Throw(i, 1);
+}
+
+static void Throw(Interpreter *i, VMVALUE value)
+{
+    VMVALUE tmp;
+    if (!i->efp)
+        Abort(i, "uncaught throw %d", i->tos);
+    i->sp = (VMVALUE *)i->efp;
+    tmp = Pop(i);
+    i->fp = (VMVALUE *)Pop(i);
+    i->pc = (uint8_t *)Pop(i);
+    i->efp = (VMVALUE *)tmp;
+    i->tos = value;
 }
 
 static void DoTrap(Interpreter *i, int op)

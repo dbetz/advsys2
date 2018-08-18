@@ -552,6 +552,7 @@ static ParseTreeNode *ParseTry(ParseContext *c)
         c->trySymbols = sym;
         FRequire(c, ')');
         FRequire(c, '{');
+        node->u.tryStatement.catchSymbol = sym;
         node->u.tryStatement.catchStatement = ParseBlock(c);
         sym = c->trySymbols;
         c->trySymbols = sym->next;

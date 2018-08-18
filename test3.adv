@@ -1,0 +1,25 @@
+var dummy;
+
+object foo {
+p1: 10;
+}
+
+property p2;
+
+def getp(obj, prop)
+{
+    var value;
+    try {
+        value = obj.(prop);
+    }
+    catch (e) {
+        value = 0;
+    }
+    return value;
+}
+
+def main()
+{
+    print getp(foo, p1);
+    print getp(foo, p2);
+}
