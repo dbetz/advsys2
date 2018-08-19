@@ -2,6 +2,8 @@
 A major update to AdvSys switching to a C-like syntax.
 
 - Implement the finally clause.
+- Add comma operator.
+- Add ternary operator.
 - Add global array declarations and initialization.
 - Fix bug where data objects can get zero as their address.
 - Add character constants.
