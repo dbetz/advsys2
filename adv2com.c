@@ -12,33 +12,56 @@
 #include "adv2compiler.h"
 #include "adv2vm.h"
 
+static void Usage(void);
 static void WriteImage(ParseContext *c, char *name);
-
 static void PrintStrings(ParseContext *c);
 
 int main(int argc, char *argv[])
 {
     ParseContext context;
     ParseContext *c = &context;
-    char outputFile[100], *p;
-    
-    if (argc != 2) {
-        printf("usage: adv2com <file>\n");
-        return 1;
-    }
-    
-    if (!(p = strrchr(argv[1], '.')))
-        strcpy(outputFile, argv[1]);
-    else {
-        strncpy(outputFile, argv[1], p - argv[1]);
-        outputFile[p - argv[1]] = '\0';
-    }
-    strcat(outputFile, ".dat");
+    char *outputFile[100], *p;
+    char *inputFile = NULL;
+    int i;
     
     /* initialize the parse context */
     memset(c, 0, sizeof(ParseContext));
     InitSymbolTable(c);
     InitScan(c);
+    
+    /* get the arguments */
+    for(i = 1; i < argc; ++i) {
+
+        /* handle switches */
+        if(argv[i][0] == '-') {
+            switch(argv[i][1]) {
+            case 'd':   // enable debug mode
+                c->debugMode = VMTRUE;
+                break;
+            default:
+                Usage();
+                break;
+            }
+        }
+
+        /* handle the input filename */
+        else {
+            if (inputFile)
+                Usage();
+            inputFile = argv[i];
+        }
+    }
+        
+    if (!inputFile)
+        Usage();
+        
+    if (!(p = strrchr(inputFile, '.')))
+        strcpy(outputFile, inputFile);
+    else {
+        strncpy(outputFile, inputFile, p - argv[1]);
+        outputFile[p - inputFile] = '\0';
+    }
+    strcat(outputFile, ".dat");
     
     /* initialize the memory spaces */
     c->codeFree = c->codeBuf;
@@ -58,19 +81,27 @@ int main(int argc, char *argv[])
     if (setjmp(c->errorTarget))
         return 1;
         
-    if (!PushFile(c, argv[1])) {
+    if (!PushFile(c, inputFile)) {
         printf("error: can't open '%s'\n", argv[1]);
         return 1;
     }
     
     ParseDeclarations(c);
     
-    PrintSymbols(c);
-    PrintStrings(c);
+    if (c->debugMode) {
+        PrintSymbols(c);
+        PrintStrings(c);
+    }
     
     WriteImage(c, outputFile);
     
     return 0;
+}
+  
+static void Usage(void)
+{
+    printf("usage: adv2com [ -d ] <file>\n");
+    exit(1);
 }
 
 static void WriteImage(ParseContext *c, char *name)

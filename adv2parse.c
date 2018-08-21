@@ -157,11 +157,12 @@ static void ParseFunctionDef(ParseContext *c, char *name)
     AddGlobal(c, name, SC_FUNCTION, (VMVALUE)(c->codeFree - c->codeBuf));
     
     node = ParseFunction(c);
-    PrintNode(c, node, 0);
+    if (c->debugMode)
+        PrintNode(c, node, 0);
     
     code = code_functiondef(c, node, &codeLength);
-    
-    DecodeFunction(c->codeBuf, code, codeLength);
+    if (c->debugMode)
+        DecodeFunction(c->codeBuf, code, codeLength);
 }
 
 /* StoreInitializer - store a data initializer */

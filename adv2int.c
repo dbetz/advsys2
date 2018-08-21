@@ -46,6 +46,9 @@ int main(int argc, char *argv[])
         }
     }
     
+    if (!infile)
+        Usage();
+        
     if (!(fp = fopen(infile, "rb"))) {
         printf("error: can't open '%s'\n", argv[1]);
         return 1;

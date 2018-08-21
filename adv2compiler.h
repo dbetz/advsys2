@@ -219,6 +219,7 @@ typedef struct {
     uint8_t stringBuf[MAXSTRING];                   /* string buffer */
     uint8_t *stringFree;                            /* next available string location */
     uint8_t *stringTop;                             /* top of string buffer */
+    int debugMode;                                  /* debug mode flag */
 } ParseContext;
 
 /* partial value type codes */

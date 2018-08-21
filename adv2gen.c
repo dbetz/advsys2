@@ -78,7 +78,6 @@ static void code_rvalue(ParseContext *c, ParseTreeNode *expr)
 /* code_statement - generate code for a statement parse tree */
 static void code_statement(ParseContext *c, ParseTreeNode *expr)
 {
-    printf("coding %d\n", expr->nodeType);
     switch (expr->nodeType) {
     case NodeTypeIf:
         code_if(c, expr);
