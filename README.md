@@ -4,7 +4,6 @@ A major update to AdvSys switching to a C-like syntax.
 - Implement the finally clause.
 - Add comma operator.
 - Add ternary operator.
-- Fix bug where data objects can get zero as their address.
 - Add character constants.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.

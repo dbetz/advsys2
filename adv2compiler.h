@@ -408,6 +408,7 @@ void *LocalAlloc(ParseContext *c, size_t size);
 /* adv2parse.c */
 void ParseDeclarations(ParseContext *c);
 void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent);
+void StoreInitializer(ParseContext *c, VMVALUE value);
 
 /* adv2scan.c */
 void InitScan(ParseContext *c);

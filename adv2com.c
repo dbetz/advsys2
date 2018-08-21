@@ -52,6 +52,9 @@ int main(int argc, char *argv[])
     putcbyte(c, 0); // argument count from fake CALL instruction
     putcbyte(c, OP_HALT);
     
+    /* make sure no object has a zero offset */
+    StoreInitializer(c, 0);
+    
     if (setjmp(c->errorTarget))
         return 1;
         

@@ -165,7 +165,7 @@ static void ParseFunctionDef(ParseContext *c, char *name)
 }
 
 /* StoreInitializer - store a data initializer */
-static void StoreInitializer(ParseContext *c, VMVALUE value)
+void StoreInitializer(ParseContext *c, VMVALUE value)
 {
     if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
         ParseError(c, "insufficient data space");
