@@ -164,23 +164,73 @@ static void ParseFunctionDef(ParseContext *c, char *name)
     DecodeFunction(c->codeBuf, code, codeLength);
 }
 
+/* StoreInitializer - store a data initializer */
+static void StoreInitializer(ParseContext *c, VMVALUE value)
+{
+    if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
+        ParseError(c, "insufficient data space");
+    *(VMVALUE *)c->dataFree = value;
+    c->dataFree += sizeof(VMVALUE);
+}
+
+/* ParseAndStoreInitializer - parse and store a data initializer */
+static void ParseAndStoreInitializer(ParseContext *c)
+{
+    VMVALUE offset = c->dataFree - c->dataBuf;
+    if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
+        ParseError(c, "insufficient data space");
+    *(VMVALUE *)c->dataFree = ParseConstantLiteralExpr(c, FT_DATA, offset);
+    c->dataFree += sizeof(VMVALUE);
+}
+
 /* ParseVar - parse the 'var' statement */
 static void ParseVar(ParseContext *c)
 {
     int tkn;
     do {
         FRequire(c, T_IDENTIFIER);
-        if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
-            ParseError(c, "insufficient data space");
         AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
-        if ((tkn = GetToken(c)) == '=') {
-            VMVALUE offset = c->dataFree - c->dataBuf;
-            *(VMVALUE *)c->dataFree = ParseConstantLiteralExpr(c, FT_DATA, offset);
+        if ((tkn = GetToken(c)) == '[') {
+            VMVALUE value = 0;
+            int size;
+            if ((tkn = GetToken(c)) == ']')
+                size = -1;
+            else {
+                SaveToken(c, tkn);
+                size = ParseIntegerLiteralExpr(c);
+                if (size < 0)
+                    ParseError(c, "expecting a positive array size");
+                FRequire(c, ']');
+            }
+            if ((tkn = GetToken(c)) == '=') {
+                if ((tkn = GetToken(c)) == '{') {
+                    do {
+                        if (size != -1 && --size < 0)
+                            ParseError(c, "too many initializers");
+                        ParseAndStoreInitializer(c);
+                    } while ((tkn = GetToken(c)) == ',');
+                    Require(c, tkn, '}');
+                }
+                else {
+                    SaveToken(c, tkn);
+                    value = ParseIntegerLiteralExpr(c);
+                }
+            }
+            else {
+                SaveToken(c, tkn);
+            }
+            while (--size >= 0)
+                StoreInitializer(c, value);
         }
         else {
             SaveToken(c, tkn);
+            if ((tkn = GetToken(c)) == '=')
+                ParseAndStoreInitializer(c);
+            else {
+                SaveToken(c, tkn);
+                StoreInitializer(c, 0);
+            }
         }
-        c->dataFree += sizeof(VMVALUE);
     } while ((tkn = GetToken(c)) == ',');
     Require(c, tkn, ';');
 }
