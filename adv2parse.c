@@ -39,6 +39,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c);
 static VMVALUE ParseIntegerLiteralExpr(ParseContext *c);
 static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset);
 static ParseTreeNode *ParseExpr(ParseContext *c);
+static ParseTreeNode *ParseExpr0(ParseContext *c);
 static ParseTreeNode *ParseExpr1(ParseContext *c);
 static ParseTreeNode *ParseExpr2(ParseContext *c);
 static ParseTreeNode *ParseExpr3(ParseContext *c);
@@ -850,7 +851,7 @@ static ParseTreeNode *ParseExpr(ParseContext *c)
 {
     ParseTreeNode *node;
     int tkn;
-    node = ParseExpr1(c);
+    node = ParseExpr0(c);
     while ((tkn = GetToken(c)) == '='
     ||      tkn == T_ADDEQ || tkn == T_SUBEQ
     ||      tkn == T_MULEQ || tkn == T_DIVEQ || tkn == T_REMEQ
@@ -898,6 +899,24 @@ static ParseTreeNode *ParseExpr(ParseContext *c)
             break;
         }
         node = MakeAssignmentOpNode(c, op, node, node2);
+    }
+    SaveToken(c, tkn);
+    return node;
+}
+
+/* ParseExpr0 - handle the '?:' operator */
+static ParseTreeNode *ParseExpr0(ParseContext *c)
+{
+    ParseTreeNode *node;
+    int tkn;
+    node = ParseExpr1(c);
+    while ((tkn = GetToken(c)) == '?') {
+        ParseTreeNode *node2 = NewParseTreeNode(c, NodeTypeTernaryOp);
+        node2->u.ternaryOp.test = node;
+        node2->u.ternaryOp.thenExpr = ParseExpr1(c);
+        FRequire(c, ':');
+        node2->u.ternaryOp.elseExpr = ParseExpr1(c);
+        node = node2;
     }
     SaveToken(c, tkn);
     return node;

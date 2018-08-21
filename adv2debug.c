@@ -149,6 +149,15 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         printf("%*sright\n", indent + 2, "");
         PrintNode(c, node->u.binaryOp.right, indent + 4);
         break;
+    case NodeTypeTernaryOp:
+        printf("TernaryOp\n");
+        printf("%*stest\n", indent + 2, "");
+        PrintNode(c, node->u.ternaryOp.test, indent + 4);
+        printf("%*sthen\n", indent + 2, "");
+        PrintNode(c, node->u.ternaryOp.thenExpr, indent + 4);
+        printf("%*selse\n", indent + 2, "");
+        PrintNode(c, node->u.ternaryOp.elseExpr, indent + 4);
+        break;
     case NodeTypeAssignmentOp:
         printf("AssignmentOp: %d\n", node->u.binaryOp.op);
         printf("%*sleft\n", indent + 2, "");

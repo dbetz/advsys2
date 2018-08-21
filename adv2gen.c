@@ -21,6 +21,7 @@ static void code_block(ParseContext *c, ParseTreeNode *expr);
 static void code_exprstatement(ParseContext *c, ParseTreeNode *node);
 static void code_asm(ParseContext *c, ParseTreeNode *node);
 static void code_print(ParseContext *c, ParseTreeNode *expr);
+static void code_ternary(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL *pv);
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
@@ -406,6 +407,9 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         putcbyte(c, expr->u.binaryOp.op);
         *pv = VT_RVALUE;
         break;
+    case NodeTypeTernaryOp:
+        code_ternary(c, expr, pv);
+        break;
     case NodeTypeAssignmentOp:
         if (expr->u.binaryOp.op == OP_EQ) {
             code_lvalue(c, expr->u.binaryOp.left, &pv2);
@@ -441,6 +445,23 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         code_shortcircuit(c, OP_BRFSC, expr, pv);
         break;
     }
+}
+
+/* code_ternary - generate code for an '?:' expression */
+static void code_ternary(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
+{
+    int nxt, end;
+    code_rvalue(c, expr->u.ternaryOp.test);
+    putcbyte(c, OP_BRF);
+    nxt = putcword(c, 0);
+    end = 0;
+    code_rvalue(c, expr->u.ternaryOp.thenExpr);
+    putcbyte(c, OP_BR);
+    end = putcword(c, end);
+    fixupbranch(c, nxt, codeaddr(c));
+    code_rvalue(c, expr->u.ternaryOp.elseExpr);
+    fixupbranch(c, end, codeaddr(c));
+    *pv = VT_RVALUE;
 }
 
 /* code_symbolref - generate code for a symbol reference */

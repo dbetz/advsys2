@@ -3,8 +3,6 @@ A major update to AdvSys switching to a C-like syntax.
 
 - Implement the finally clause.
 - Add comma operator.
-- Add ternary operator.
-- Add character constants.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.
 - Need a way to parse user input.

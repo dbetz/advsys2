@@ -31,16 +31,16 @@ def main()
     print #loc.description;
     
     while (1) {
-        if ((ch = getc()) != 10) {
-            if (ch == 110)
+        if ((ch = getc()) != '\n') {
+            if (ch == 'n')
                 newloc = getp(loc, north);
-            else if (ch == 115)
+            else if (ch == 's')
                 newloc = getp(loc, south);
-            else if (ch == 101)
+            else if (ch == 'e')
                 newloc = getp(loc, east);
-            else if (ch == 119)
+            else if (ch == 'w')
                 newloc = getp(loc, west);
-            else if (ch == 113)
+            else if (ch == 'q')
                 break;
             else
                 newloc = -1;

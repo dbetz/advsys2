@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 {
     ParseContext context;
     ParseContext *c = &context;
-    char *outputFile[100], *p;
+    char outputFile[100], *p;
     char *inputFile = NULL;
     int i;
     

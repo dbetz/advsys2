@@ -6,5 +6,7 @@ def main()
     var b;
     var c = 99;
     print a, b, c;
+    print a < c ? 111 : 222;
+    print a > c ? 333 : 444;
 }
 

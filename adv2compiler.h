@@ -261,6 +261,7 @@ enum {
     NodeTypePostincrementOp,
     NodeTypeUnaryOp,
     NodeTypeBinaryOp,
+    NodeTypeTernaryOp,
     NodeTypeAssignmentOp,
     NodeTypeArrayRef,
     NodeTypeFunctionCall,
@@ -366,6 +367,11 @@ struct ParseTreeNode {
             ParseTreeNode *left;
             ParseTreeNode *right;
         } binaryOp;
+        struct {
+            ParseTreeNode *test;
+            ParseTreeNode *thenExpr;
+            ParseTreeNode *elseExpr;
+        } ternaryOp;
         struct {
             ParseTreeNode *array;
             ParseTreeNode *index;
