@@ -396,15 +396,20 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         putcbyte(c, OP_DROP);
         *pv = VT_RVALUE;
         break;
-    case NodeTypeUnaryOp:
-        code_rvalue(c, expr->u.unaryOp.expr);
-        putcbyte(c, expr->u.unaryOp.op);
-        *pv = VT_RVALUE;
+    case NodeTypeCommaOp:
+        code_rvalue(c, expr->u.commaOp.left);
+        putcbyte(c, OP_DROP);
+        code_rvalue(c, expr->u.commaOp.right);
         break;
     case NodeTypeBinaryOp:
         code_rvalue(c, expr->u.binaryOp.left);
         code_rvalue(c, expr->u.binaryOp.right);
         putcbyte(c, expr->u.binaryOp.op);
+        *pv = VT_RVALUE;
+        break;
+    case NodeTypeUnaryOp:
+        code_rvalue(c, expr->u.unaryOp.expr);
+        putcbyte(c, expr->u.unaryOp.op);
         *pv = VT_RVALUE;
         break;
     case NodeTypeTernaryOp:

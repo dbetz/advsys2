@@ -39,6 +39,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c);
 static VMVALUE ParseIntegerLiteralExpr(ParseContext *c);
 static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset);
 static ParseTreeNode *ParseExpr(ParseContext *c);
+static ParseTreeNode *ParseAssignmentExpr(ParseContext *c);
 static ParseTreeNode *ParseExpr0(ParseContext *c);
 static ParseTreeNode *ParseExpr1(ParseContext *c);
 static ParseTreeNode *ParseExpr2(ParseContext *c);
@@ -763,7 +764,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
         default:
             needNewline = VMTRUE;
             SaveToken(c, tkn);
-            expr = ParseExpr(c);
+            expr = ParseAssignmentExpr(c);
             switch (expr->nodeType) {
             case NodeTypeStringLit:
                 op = LocalAlloc(c, sizeof(PrintOp));
@@ -809,7 +810,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
 /* ParseIntegerLiteralExpr - parse an integer literal expression */
 static VMVALUE ParseIntegerLiteralExpr(ParseContext *c)
 {
-    ParseTreeNode *expr = ParseExpr(c);
+    ParseTreeNode *expr = ParseAssignmentExpr(c);
     VMVALUE value;
     if (!IsIntegerLit(expr, &value))
         ParseError(c, "expecting a constant expression");
@@ -819,7 +820,7 @@ static VMVALUE ParseIntegerLiteralExpr(ParseContext *c)
 /* ParseConstantLiteralExpr - parse a constant literal expression (including objects and functions) */
 static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset)
 {
-    ParseTreeNode *expr = ParseExpr(c);
+    ParseTreeNode *expr = ParseAssignmentExpr(c);
     VMVALUE value = NIL;
     switch (expr->nodeType) {
     case NodeTypeIntegerLit:
@@ -846,8 +847,24 @@ static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VM
     return value;
 }
 
-/* ParseExpr - handle assignment operators */
+/* ParseExpr - handle the ',' operator */
 static ParseTreeNode *ParseExpr(ParseContext *c)
+{
+    ParseTreeNode *node;
+    int tkn;
+    node = ParseAssignmentExpr(c);
+    while ((tkn = GetToken(c)) == ',') {
+        ParseTreeNode *node2 = NewParseTreeNode(c, NodeTypeCommaOp);
+        node2->u.commaOp.left = node;
+        node2->u.commaOp.right = ParseExpr(c);
+        node = node2;
+    }
+    SaveToken(c, tkn);
+    return node;
+}
+
+/* ParseAssignmentExpr - handle assignment operators */
+static ParseTreeNode *ParseAssignmentExpr(ParseContext *c)
 {
     ParseTreeNode *node;
     int tkn;
@@ -1344,7 +1361,7 @@ static ParseTreeNode *ParseCall(ParseContext *c, ParseTreeNode *functionNode)
         do {
             NodeListEntry *actual;
             actual = (NodeListEntry *)LocalAlloc(c, sizeof(NodeListEntry));
-            actual->node = ParseExpr(c);
+            actual->node = ParseAssignmentExpr(c);
             actual->next = NULL;
             *pLast = actual;
             pLast = &actual->next;

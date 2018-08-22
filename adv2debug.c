@@ -142,6 +142,13 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         printf("%*sexpr\n", indent + 2, "");
         PrintNode(c, node->u.incrementOp.expr, indent + 4);
         break;
+    case NodeTypeCommaOp:
+        printf("CommaOp\n");
+        printf("%*sleft\n", indent + 2, "");
+        PrintNode(c, node->u.commaOp.left, indent + 4);
+        printf("%*sright\n", indent + 2, "");
+        PrintNode(c, node->u.commaOp.right, indent + 4);
+        break;
     case NodeTypeBinaryOp:
         printf("BinaryOp: %d\n", node->u.binaryOp.op);
         printf("%*sleft\n", indent + 2, "");

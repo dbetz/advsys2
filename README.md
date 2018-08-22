@@ -86,7 +86,7 @@ throw expr ;
 
 print expr [ $|, expr ]... [ $ ] ;
 
-expr = expr
+expr = expr ? expr : expr
 
 expr += expr
 expr -= expr

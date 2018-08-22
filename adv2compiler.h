@@ -259,6 +259,7 @@ enum {
     NodeTypeFunctionLit,
     NodeTypePreincrementOp,
     NodeTypePostincrementOp,
+    NodeTypeCommaOp,
     NodeTypeUnaryOp,
     NodeTypeBinaryOp,
     NodeTypeTernaryOp,
@@ -362,6 +363,10 @@ struct ParseTreeNode {
             int increment;
             ParseTreeNode *expr;
         } incrementOp;
+        struct {
+            ParseTreeNode *left;
+            ParseTreeNode *right;
+        } commaOp;
         struct {
             int op;
             ParseTreeNode *left;
