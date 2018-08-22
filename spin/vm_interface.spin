@@ -58,11 +58,6 @@ _SECTION_SIZE           = $0c
 ' must match memory base addresses in db_config.h
 HUB_BASE		= $00000000	' must be zero
 COG_BASE		= $10000000
-RAM_BASE		= $20000000
-FLASH_BASE		= $30000000
-
-' external memory base
-EXTERNAL_BASE		= RAM_BASE
 
 VAR
 

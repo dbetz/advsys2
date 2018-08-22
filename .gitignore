@@ -1,4 +1,5 @@
 *.o
 *.dat
+*.binary
 adv2com
 adv2int

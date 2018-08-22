@@ -1,5 +1,3 @@
-#define USE_JCACHE_MEMORY
-
 CON
 
 OP_HALT         = $00    ' halt
@@ -57,7 +55,6 @@ REM_OP          = 1
 
 OBJ
   int : "vm_interface"
-  cache : "cache_interface"
 
 PUB dummy
 
@@ -92,7 +89,7 @@ _init1
         ' prepare to parse the initialization parameters
         mov     r1,par
 
-        ' get the memory base address (only for hub mode)
+        ' get the memory base address
         rdlong  base,r1
         add     r1,#4
 
@@ -107,15 +104,6 @@ _init1
         add     arg_sts_ptr,#4
         mov     arg2_fcn_ptr,arg_sts_ptr
         add     arg2_fcn_ptr,#4
-
-#ifdef USE_JCACHE_MEMORY
-        ' get the cache mailbox address
-        rdlong  cache_mboxcmd,r1
-        add     r1,#4
-        mov     cache_mboxdat,cache_mboxcmd
-        add     cache_mboxdat,#4
-        rdlong  cache_linemask,r1
-#endif
 
         ' return the initial state
         call    #store_state
@@ -589,7 +577,7 @@ stack_overflow_err
 divide_by_zero_err
         mov     r1,#int#STS_DivideZero
         jmp     #end_command
-external_start   long int#EXTERNAL_BASE     'Start of external memory access window in VM memory space
+
 cog_start        long int#COG_BASE	        'Start of COG access window in VM memory space
 
 ' input:
@@ -605,18 +593,9 @@ get_code_byte           mov     r1, pc
 '    r1 is address
 ' output:
 '    r1 is value
-_read_byte              cmp     r1, external_start wc    'Check for normal memory access
-              if_nc     jmp     #read_external_byte
-
-read_hub_byte           add     r1, base
+_read_byte              add     r1, base
                         rdbyte  r1, r1
                         jmp     #_read_byte_ret
-
-read_external_byte
-#ifdef USE_JCACHE_MEMORY
-                        call    #cache_read
-                        rdbyte  r1, memp
-#endif
 get_code_byte_ret
 _read_byte_ret          ret
 
@@ -624,10 +603,7 @@ _read_byte_ret          ret
 '    r1 is address
 ' output:
 '    r1 is value
-_read_long              cmp     r1, external_start wc   'Check for normal memory access
-              if_nc     jmp     #read_external_long
-
-read_hub_long           cmp     r1, cog_start wc        'Check for COG memory access
+_read_long              cmp     r1, cog_start wc        'Check for COG memory access
               if_nc     jmp     #read_cog_long
 
                         add     r1, base
@@ -638,13 +614,6 @@ read_cog_long           shr     r1, #2
                         movs    :rcog, r1
                         nop
 :rcog                   mov     r1, 0-0
-                        jmp     #_read_long_ret
-
-read_external_long
-#ifdef USE_JCACHE_MEMORY
-                        call    #cache_read
-                        rdlong  r1, memp
-#endif
 _read_long_ret          ret
 
 ' Input:
@@ -652,18 +621,8 @@ _read_long_ret          ret
 '    r2 is value
 ' trashes:
 '    r1
-_write_byte             cmp     r1, external_start wc    'Check for normal memory access
-              if_nc     jmp     #write_external_byte
-
-write_hub_byte          add     r1, base
+_write_byte             add     r1, base
                         wrbyte  r2, r1
-                        jmp     #_write_byte_ret
-
-write_external_byte
-#ifdef USE_JCACHE_MEMORY
-                        call    #cache_write
-                        wrbyte  r2, memp
-#endif
 _write_byte_ret         ret
 
 ' input:
@@ -671,10 +630,7 @@ _write_byte_ret         ret
 '    r2 is value
 ' trashes:
 '    r1
-_write_long             cmp     r1, external_start wc   'Check for normal memory access
-              if_nc     jmp     #write_external_long
-
-write_hub_long          cmp     r1, cog_start wc        'Check for COG memory access
+_write_long             cmp     r1, cog_start wc        'Check for COG memory access
               if_nc     jmp     #write_cog_long
 
                         add     r1, base
@@ -685,13 +641,6 @@ write_cog_long          shr     r1, #2
                         movd    :wcog, r1
                         nop
 :wcog                   mov     0-0, r2
-                        jmp     #_write_long_ret
-
-write_external_long
-#ifdef USE_JCACHE_MEMORY
-                        call    #cache_write
-                        wrlong  r2, memp
-#endif
 _write_long_ret         ret
 
 ' constants
@@ -704,48 +653,6 @@ cmd_ptr                 long    0
 arg_sts_ptr             long    0
 arg2_fcn_ptr            long    0
 state_ptr               long    0
-
-#ifdef USE_JCACHE_MEMORY
-
-cache_linemask          long    0
-cache_mboxcmd           long    0
-cache_mboxdat           long    0
-temp                    long    0
-memp                    long    0
-cacheaddr               long    0
-cacheptr                long    0
-
-cache_write             mov     memp, r1                    'save address for index
-                        andn    r1, #cache#CMD_MASK         'ensure a write is not a read
-                        or      r1, #cache#WRITE_CMD
-                        jmp     #cache_access
-
-cache_read              mov     temp, r1                    'ptr + cache_mboxdat = hub address of byte to load
-                        andn    temp, cache_linemask
-                        cmp     cacheaddr,temp wz           'if cacheaddr == addr, just pull form cache
-            if_ne       jmp     #:next                      'memp gets overwriteen on a miss
-                        mov     memp, r1                    'ptr + cache_mboxdat = hub address of byte to load
-                        and     memp, cache_linemask
-                        add     memp, cacheptr              'add ptr to memp to get data address
-                        jmp     #cache_read_ret
-:next
-                        mov     memp, r1                    'save address for index
-                        or      r1, #cache#READ_CMD         'read must be 3 to avoid needing andn addr,#cache#CMD_MASK
-
-cache_access            ' if cacheaddr <> addr, load new cache line
-                        wrlong  r1, cache_mboxcmd
-                        mov     cacheaddr,r1                'Save new cache address. it's free time here
-                        andn    cacheaddr,cache_linemask    'Kill command bits in free time
-:waitres                rdlong  temp, cache_mboxcmd wz
-            if_nz       jmp     #:waitres
-                        and     memp, cache_linemask        'memp is index into buffer
-                        rdlong  cacheptr, cache_mboxdat     'Get new buffer
-                        add     memp, cacheptr              'memp is now HUB buf address of data to read
-cache_read_ret
-cache_write_ret
-                        ret
-
-#endif
 
 fast_mul                ' tos * r1
                         ' account for sign
