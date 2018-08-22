@@ -41,13 +41,12 @@ typedef struct {
 
 /* stack frame format:
 
-sp -> local n
+sp -> saved fp
+      local n
       local n-1
       ...
       local 2
       local 1
-      saved fp
-      saved pc
 fp -> arg 1
       arg 2
       ...

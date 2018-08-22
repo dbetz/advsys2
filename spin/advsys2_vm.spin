@@ -33,20 +33,24 @@ OP_LOAD         = $1b    ' load a long from memory
 OP_LOADB        = $1c    ' load a byte from memory
 OP_STORE        = $1d    ' store a long in memory
 OP_STOREB       = $1e    ' store a byte in memory
-OP_LREF         = $1f    ' load a local variable relative to the frame pointer
-OP_LSET         = $20    ' set a local variable relative to the frame pointer
-OP_INDEX        = $21    ' index into a vector
-OP_PUSHJ        = $22    ' push the pc and jump to a function */
-OP_POPJ         = $23    ' return to the address on the stack */
-OP_CLEAN        = $24    ' clean arguments off the stack after a function call */
-OP_FRAME        = $25    ' create a stack frame */
-OP_RETURN       = $26    ' remove a stack frame and return from a function call */
-OP_RETURNZ      = $27    ' remove a stack frame and return zero from a function call */
-OP_DROP         = $28    ' drop the top element of the stack
-OP_DUP          = $29    ' duplicate the top element of the stack
-OP_NATIVE       = $2a    ' execute a native instruction
-OP_TRAP         = $2b    ' invoke a trap handler
-OP_LAST         = $2b
+OP_LADDR        = $1f    ' load the address of a local variable
+OP_INDEX        = $20    ' index into a vector
+OP_CALL         = $21    ' call a function */
+OP_FRAME        = $22    ' create a stack frame */
+OP_RETURN       = $23    ' from a function */
+OP_DROP         = $24    ' drop the top element of the stack
+OP_DUP          = $25    ' duplicate the top element of the stack
+OP_TUCK         = $26    ' a b -> b a
+OP_SWAP         = $27    ' swap the top to elements of the stack
+OP_TRAP         = $28    ' invoke a trap handler
+OP_SEND         = $29    ' send a message to an object
+OP_DADDR        = $2a    ' load the address of something in data space
+OP_PADDR        = $2b    ' load the address of a property value
+OP_CLASS        = $2c    ' get the class of an object
+OP_TRY          = $2d    ' enter a try block
+OP_TRYEXIT      = $2e    ' exit a try block
+OP_THROW        = $2f    ' throw an exception
+OP_LAST         = $2f
 
 DIV_OP          = 0
 REM_OP          = 1
@@ -72,6 +76,7 @@ base        long    0
 sp          long    0
 fp          long    0
 pc          long    0
+efp         long    0
 
 ' virtual machine registers
 stack       long    0
@@ -242,19 +247,23 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_LOADB              ' load a byte from memory
         jmp     #_OP_STORE              ' store a long into memory
         jmp     #_OP_STOREB             ' store a byte into memory
-        jmp     #_OP_LREF               ' load a local variable relative to the frame pointer
-        jmp     #_OP_LSET               ' set a local variable relative to the frame pointer
+        jmp     #_OP_LADDR              ' load the address of a local variable
         jmp     #_OP_INDEX              ' index into a vector
-        jmp     #_OP_PUSHJ              ' push the pc and jump to the address on the stack
-        jmp     #_OP_POPJ               ' return to the address on the stack
-        jmp     #_OP_CLEAN              ' remove function arguments from the stack
+        jmp     #_OP_CALL               ' call a function
         jmp     #_OP_FRAME              ' push a frame onto the stack
-        jmp     #_OP_RETURN             ' remove a frame from the stack and return from a function call
-        jmp     #_OP_RETURNZ            ' remove a frame from the stack and return zero from a function call
+        jmp     #_OP_RETURN             ' return from a function
         jmp     #_OP_DROP               ' drop the top element of the stack
         jmp     #_OP_DUP                ' duplicate the top element of the stack
-        jmp     #_OP_NATIVE             ' execute a native instruction
+        jmp     #_OP_TUCK               ' a b -> b a
+        jmp     #_OP_SWAP               ' swap the top to elements of the stack
         jmp     #_OP_TRAP               ' invoke a trap handler
+        jmp     #_OP_SEND               ' send a message to an object
+        jmp     #_OP_DADDR              ' load the address of something in data space
+        jmp     #_OP_PADDR              ' load the address of a property value
+        jmp     #_OP_CLASS              ' get the class of an object
+        jmp     #_OP_TRY                ' enter a try block
+        jmp     #_OP_TRYEXIT            ' exit a try block
+        jmp     #_OP_THROW              ' throw an exception
 
 _OP_HALT               ' halt
         call    #store_state
@@ -448,16 +457,9 @@ _OP_STOREB             ' store a byte into memory
         call    #pop_tos
         jmp     #_next
 
-_OP_LREF               ' load a local variable relative to the frame pointer
+_OP_LADDR              ' load a local variable relative to the frame pointer
         call    #push_tos
         call    #lref
-        rdlong  tos,r1
-        jmp     #_next
-        
-_OP_LSET               ' set a local variable relative to the frame pointer
-        call    #lref
-        wrlong  tos,r1
-        call    #pop_tos
         jmp     #_next
         
 _OP_INDEX               ' index into a vector
@@ -466,24 +468,13 @@ _OP_INDEX               ' index into a vector
         add     tos,r1
         jmp     #_next
         
-_OP_PUSHJ
+_OP_CALL                ' call a function
         mov     r1,tos
         mov     tos,pc
         mov     pc,r1
         jmp     #_next
 
-_OP_POPJ
-        mov     pc,tos
-        call    #pop_tos
-        jmp     #_next
-
-_OP_CLEAN
-        call    #get_code_byte
-        shl     r1,#2
-        add     sp,r1
-        jmp     #_next
-
-_OP_FRAME
+_OP_FRAME               ' push a frame onto the stack
         mov     r2,fp
         mov     fp,sp
         call    #get_code_byte
@@ -496,16 +487,9 @@ _OP_FRAME
         wrlong  r2,r1       ' store the old fp
         jmp     #_next
 
-_OP_RETURNZ
-        call    #push_tos
-        mov     tos,#0
-        ' fall through
-
-_OP_RETURN
-        rdlong  pc,sp
-        mov     sp,fp
-        sub     fp,#4
-        rdlong  fp,fp
+_OP_RETURN              ' return from a function
+        mov     pc,tos
+        call    #pop_tos
         jmp     #_next
 
 _OP_DROP               ' drop the top element of the stack
@@ -517,6 +501,12 @@ _OP_DUP                ' duplicate the top element of the stack
         call    #push_tos
         jmp     #_next
 
+_OP_TUCK               ' a b -> b a
+        jmp     #_next
+
+_OP_SWAP               ' swap the top to elements of the stack
+        jmp     #_next
+
 _OP_TRAP
         call    #get_code_byte
         wrlong  r1,arg2_fcn_ptr
@@ -524,17 +514,26 @@ _OP_TRAP
         mov     r1,#int#STS_Trap
         jmp     #end_command
 
-_OP_NATIVE
-        call    #imm32
-        mov     :inst, r1
-        test    save_zc, #2 wz      ' restore the z flag
-        shr     save_zc, #1 wc, nr  ' restore the c flag
-:inst   nop
-        muxnz   save_zc, #2         ' save the z flag
-        muxc    save_zc, #1         ' save the c flag
+_OP_SEND               ' send a message to an object
         jmp     #_next
 
-save_zc long    0
+_OP_DADDR              ' load the address of something in data space
+        jmp     #_next
+
+_OP_PADDR              ' load the address of a property value
+        jmp     #_next
+
+_OP_CLASS              ' get the class of an object
+        jmp     #_next
+
+_OP_TRY                ' enter a try block
+        jmp     #_next
+
+_OP_TRYEXIT            ' exit a try block
+        jmp     #_next
+
+_OP_THROW              ' throw an exception
+        jmp     #_next
 
 imm32
         call    #get_code_byte  ' bits 31:24
