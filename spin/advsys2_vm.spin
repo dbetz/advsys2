@@ -38,7 +38,7 @@ OP_FRAME        = $22    ' create a stack frame */
 OP_RETURN       = $23    ' from a function */
 OP_DROP         = $24    ' drop the top element of the stack
 OP_DUP          = $25    ' duplicate the top element of the stack
-OP_TUCK         = $26    ' a b -> b a
+OP_TUCK         = $26    ' a b -> b a b
 OP_SWAP         = $27    ' swap the top to elements of the stack
 OP_TRAP         = $28    ' invoke a trap handler
 OP_SEND         = $29    ' send a message to an object
@@ -62,6 +62,11 @@ DAT
         org 0
 _init
         jmp     #_init1
+
+' base addresses
+dbase       long    0
+cbase       long    0
+sbase       long    0
 
 ' registers for use by inline code
 t1          long    0
@@ -242,7 +247,7 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_RETURN             ' return from a function
         jmp     #_OP_DROP               ' drop the top element of the stack
         jmp     #_OP_DUP                ' duplicate the top element of the stack
-        jmp     #_OP_TUCK               ' a b -> b a
+        jmp     #_OP_TUCK               ' a b -> b a b
         jmp     #_OP_SWAP               ' swap the top to elements of the stack
         jmp     #_OP_TRAP               ' invoke a trap handler
         jmp     #_OP_SEND               ' send a message to an object
@@ -457,27 +462,36 @@ _OP_INDEX               ' index into a vector
         jmp     #_next
         
 _OP_CALL                ' call a function
+        add     pc,#1   '   skip past the argument count
         mov     r1,tos
         mov     tos,pc
         mov     pc,r1
+        add     pc,cbase
         jmp     #_next
 
 _OP_FRAME               ' push a frame onto the stack
+        rdbyte  r1,pc
+        add     pc,#1
         mov     r2,fp
         mov     fp,sp
-        call    #get_code_byte
         shl     r1,#2
         sub     sp,r1
         cmp     sp,stack wc,wz
-   if_b jmp     #stack_overflow_err
-        mov     r1,fp
-        sub     r1,#4
-        wrlong  r2,r1       ' store the old fp
+  if_b  jmp     #stack_overflow_err
+        wrlong  r1,sp
         jmp     #_next
 
 _OP_RETURN              ' return from a function
-        mov     pc,tos
-        call    #pop_tos
+        rdlong  pc,sp
+        add     sp,#4
+        rdlong  r1,sp
+        mov     sp,fp
+        mov     r2,pc
+        sub     r2,#1
+        rdbyte  r2,r2
+        shl     r2,#2
+        add     sp,r2
+        mov     fp,r1
         jmp     #_next
 
 _OP_DROP               ' drop the top element of the stack
@@ -489,10 +503,16 @@ _OP_DUP                ' duplicate the top element of the stack
         call    #push_tos
         jmp     #_next
 
-_OP_TUCK               ' a b -> b a
+_OP_TUCK               ' a b -> b a b
+        rdlong  r1,sp
+        call    #push_tos
+        mov     tos,r1
         jmp     #_next
 
 _OP_SWAP               ' swap the top to elements of the stack
+        rdlong  r1,sp
+        wrlong  tos,sp
+        mov     tos,r1
         jmp     #_next
 
 _OP_TRAP
@@ -506,12 +526,15 @@ _OP_SEND               ' send a message to an object
         jmp     #_next
 
 _OP_DADDR              ' load the address of something in data space
+        add     tos,dbase
         jmp     #_next
 
 _OP_PADDR              ' load the address of a property value
         jmp     #_next
 
 _OP_CLASS              ' get the class of an object
+        add     tos,dbase
+        rdlong  tos,tos
         jmp     #_next
 
 _OP_TRY                ' enter a try block

@@ -9,17 +9,22 @@ CON
   ' character codes
   CR = $0d
   LF = $0a
+  
+VAR
+  ' this should be a local variable but there is a bug in Spin that prevents
+  ' using vm$_INIT_SIZE as the size of a local array
+  long initParams[vm#_INIT_SIZE]
 
 PUB init_serial(baudrate, rxpin, txpin)
   ser.start(rxpin, txpin, 0, baudrate)
 
-PUB init(mbox, state, code, data, cache_mbox, cache_line_mask) | params[vm#_INIT_SIZE]
-  params[vm#INIT_BASE] := data
-  params[vm#INIT_STATE] := state
-  params[vm#INIT_MBOX] := mbox
-  params[vm#INIT_CACHE_MBOX] := cache_mbox
-  params[vm#INIT_CACHE_MASK] := cache_line_mask
-  vm.start(code, @params)
+PUB init(mbox, state, code, data, cache_mbox, cache_line_mask)
+  initParams[vm#INIT_BASE] := data
+  initParams[vm#INIT_STATE] := state
+  initParams[vm#INIT_MBOX] := mbox
+  initParams[vm#INIT_CACHE_MBOX] := cache_mbox
+  initParams[vm#INIT_CACHE_MASK] := cache_line_mask
+  vm.start(code, @initParams)
 
 PUB load(mbox, state, image, data_end) | main, stack, stack_size, count, p, i, base, offset, size
 
