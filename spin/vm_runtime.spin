@@ -16,11 +16,13 @@ VAR
   ' this should be a local variable but there is a bug in Spin that prevents
   ' using vm$_INIT_SIZE as the size of a local array
   long initParams[vm#_INIT_SIZE]
+  long codeBase
 
 PUB init_serial(baudrate, rxpin, txpin)
   ser.start(rxpin, txpin, 0, baudrate)
 
 PUB init(mbox, state, stack, stack_size, image)
+  codeBase := image + long[image][vm#IMAGE_CodeOffset]
   initParams[vm#INIT_IMAGE] := image
   initParams[vm#INIT_STATE] := state
   initParams[vm#INIT_MBOX] := mbox
@@ -122,7 +124,7 @@ PRI pop_tos(state) | sp
 
 PRI show_status(mbox, state) | pc, sp, i
   pc := long[state][vm#STATE_PC]
-  ser.hex(pc, 8)
+  ser.hex(pc - codeBase, 8)
   ser.tx(" ")
   ser.hex(vm.read_byte(mbox, pc), 2)
   ser.tx(" ")

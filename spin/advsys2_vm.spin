@@ -12,6 +12,15 @@ MBOX_ARG_STS      = 1
 MBOX_ARG2_FCN     = 2
 _MBOX_SIZE        = 3
 
+IMAGE_DataOffset  = 0
+IMAGE_DataSize    = 1
+IMAGE_CodeOffset  = 2
+IMAGE_CodeSize    = 3
+IMAGE_StringOffset= 4
+IMAGE_StringSize  = 5
+IMAGE_MainFunction= 6
+_IMAGE_SIZE       = 7
+
 STATE_FP          = 0
 STATE_SP          = 1
 STATE_TOS         = 2
@@ -186,6 +195,10 @@ _init
         add     r1,#8
         rdlong  pc,r1
         add     pc,cbase
+        
+        ' put the address of a halt in tos
+        mov     tos,cbase
+        add     tos,#1
 
         ' return the initial state
         call    #store_state
@@ -383,31 +396,31 @@ _OP_NEG                ' negate
         jmp     #_next
         
 _OP_ADD                ' add two numeric expressions
-        call    #pop_t1
+        call    #pop_r1
         adds    tos,r1
         jmp     #_next
         
 _OP_SUB                ' subtract two numeric expressions
-        call    #pop_t1
+        call    #pop_r1
         subs    r1,tos
         mov     tos,r1
         jmp     #_next
         
 _OP_MUL                ' multiply two numeric expressions
-        call    #pop_t1
+        call    #pop_r1
         jmp     #fast_mul
         
 _OP_DIV                ' divide two numeric expressions
         cmp     tos,#0 wz
    if_z jmp     #divide_by_zero_err
-        call    #pop_t1
+        call    #pop_r1
         mov     div_flags,#DIV_OP
         jmp     #fast_div
 
 _OP_REM                ' remainder of two numeric expressions
         cmp     tos,#0 wz
    if_z jmp     #divide_by_zero_err
-        call    #pop_t1
+        call    #pop_r1
         mov     div_flags,#REM_OP
         jmp     #fast_div
 
@@ -416,69 +429,69 @@ _OP_BNOT               ' bitwise not of two numeric expressions
         jmp     #_next
         
 _OP_BAND               ' bitwise and of two numeric expressions
-        call    #pop_t1
+        call    #pop_r1
         and     tos,r1
         jmp     #_next
         
 _OP_BOR                ' bitwise or of two numeric expressions
-        call    #pop_t1
+        call    #pop_r1
         or      tos,r1
         jmp     #_next
         
 _OP_BXOR               ' bitwise exclusive or
-        call    #pop_t1
+        call    #pop_r1
         xor     tos,r1
         jmp     #_next
         
 _OP_SHL                ' shift left
-        call    #pop_t1
+        call    #pop_r1
         shl     r1,tos
         mov     tos,r1
         jmp     #_next
         
 _OP_SHR                ' shift right
-        call    #pop_t1
+        call    #pop_r1
         shr     r1,tos
         mov     tos,r1
         jmp     #_next
         
 _OP_LT                 ' less than
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz,wc
    if_b mov     tos,#1
   if_ae mov     tos,#0
         jmp     #_next
         
 _OP_LE                 ' less than or equal to
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz,wc
   if_be mov     tos,#1
   if_a  mov     tos,#0
         jmp     #_next
         
 _OP_EQ                 ' equal to
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz
    if_e mov     tos,#1
   if_ne mov     tos,#0
         jmp     #_next
         
 _OP_NE                 ' not equal to
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz
   if_ne mov     tos,#1
    if_e mov     tos,#0
         jmp     #_next
         
 _OP_GE                 ' greater than or equal to
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz,wc
   if_ae mov     tos,#1
    if_b mov     tos,#0
         jmp     #_next
         
 _OP_GT                 ' greater than
-        call    #pop_t1
+        call    #pop_r1
         cmps    r1,tos wz,wc
    if_a mov     tos,#1
   if_be mov     tos,#0
@@ -511,28 +524,28 @@ _OP_LOADB              ' load a byte from memory
         jmp     #_next
 
 _OP_STORE              ' store a long into memory
-        call    #pop_t1
-        mov     r2,r1
-        mov     r1,tos
+        call    #pop_r1
+        mov     r2,tos
         call    #_write_long
-        call    #pop_tos
         jmp     #_next
         
 _OP_STOREB             ' store a byte into memory
-        call    #pop_t1
-        mov     r2,r1
-        mov     r1,tos
+        call    #pop_r1
+        mov     r2,tos
         call    #_write_byte
-        call    #pop_tos
         jmp     #_next
 
 _OP_LADDR              ' load a local variable relative to the frame pointer
         call    #push_tos
-        call    #lref
+        call    #get_code_byte
+        shl     r1,#24
+        sar     r1,#22
+        add     r1,fp
+        mov     tos,r1
         jmp     #_next
         
 _OP_INDEX               ' index into a vector
-        call    #pop_t1
+        call    #pop_r1
         shl     tos,#2
         add     tos,r1
         jmp     #_next
@@ -646,14 +659,6 @@ imm32
 imm32_ret
         ret
 
-lref
-        call    #get_code_byte
-        shl     r1,#24
-        sar     r1,#22
-        add     r1,fp
-lref_ret
-        ret
-        
 push_tos
         sub     sp,#4
         cmp     sp,stack wc,wz
@@ -668,10 +673,10 @@ pop_tos
 pop_tos_ret
         ret
 
-pop_t1
+pop_r1
         rdlong  r1,sp
         add     sp,#4
-pop_t1_ret
+pop_r1_ret
         ret
 
 illegal_opcode_err

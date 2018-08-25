@@ -22,9 +22,8 @@ PUB start
   runtime.init_serial(p_baudrate, p_rxpin, p_txpin)
   runtime.init(vm_mbox, vm_state, vm_stack, vm_stack_size, @image)
   waitcnt(clkfreq+cnt) ' this is a hack!
-  runtime.show_state(vm_state)
-  'runtime.run(vm_mbox, vm_state)
-  runtime.single_step(vm_mbox, vm_state)
+  'runtime.show_state(vm_state)
+  runtime.run(vm_mbox, vm_state)
   repeat
 
 DAT

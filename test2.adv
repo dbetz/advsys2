@@ -8,7 +8,7 @@ def main()
     print a, b, c;
     print a < c ? 111 : 222;
     print a > c ? 333 : 444;
-    a = 11, b + 22, c + 33;
+    a = (11, b + 22, c + 33);
     print a;
 }
 

@@ -756,7 +756,7 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
         case '#':
             op = LocalAlloc(c, sizeof(PrintOp));
             op->trap = TRAP_PrintStr;
-            op->expr = ParseExpr(c);
+            op->expr = ParseAssignmentExpr(c);
             op->next = NULL;
             *pNext = op;
             pNext = &op->next;
@@ -874,7 +874,7 @@ static ParseTreeNode *ParseAssignmentExpr(ParseContext *c)
     ||      tkn == T_MULEQ || tkn == T_DIVEQ || tkn == T_REMEQ
     ||      tkn == T_ANDEQ || tkn == T_OREQ  || tkn == T_XOREQ
     ||      tkn == T_SHLEQ || tkn == T_SHREQ) {
-        ParseTreeNode *node2 = ParseExpr(c);
+        ParseTreeNode *node2 = ParseExpr0(c);
         int op;
         switch (tkn) {
         case '=':
