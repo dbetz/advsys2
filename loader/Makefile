@@ -11,9 +11,11 @@ db_loader.o \
 db_packet.o \
 db_system.o \
 PLoadLib.o \
+
+SPINOBJS = \
 osint_linux.o \
 serial_helper.o \
-advsys2_vm.o
+hub_loader.o
 
 HDRS = \
 db_config.h \
@@ -44,8 +46,8 @@ CFLAGS = -DMACOSX -Wall -Os -DMAC -m32
 bin2c:  $(TOOLSDIR)/bin2c.c
 	cc $(CFLAGS) -o $@ $<
 
-adv2load:	$(OBJS)
-	cc $(CFLAGS) -o $@ $(OBJS)
+adv2load:	$(OBJS) $(SPINOBJS)
+	cc $(CFLAGS) -o $@ $(OBJS) $(SPINOBJS)
 
 clean:
 	rm -f *.o *.binary *.dat advsys2_vm.c serial_helper.c adv2load bin2c

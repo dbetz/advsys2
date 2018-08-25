@@ -7,7 +7,6 @@ OBJ
   tv   : "TV_Text"
 #endif
   runtime : "vm_runtime"
-  vm : "vm_interface"
 
 CON
   ' these will get overwritten with the correct values before loading
@@ -37,8 +36,8 @@ CON
 '   vm_data
 
   hub_memory_size = 32 * 1024
-  vm_mbox_size = vm#_MBOX_SIZE * 4
-  vm_state_size = vm#_STATE_SIZE * 4
+  vm_mbox_size = runtime#_MBOX_SIZE * 4
+  vm_state_size = runtime#_STATE_SIZE * 4
 
   def_vm_mbox = hub_memory_size - vm_mbox_size
   def_vm_state = def_vm_mbox - vm_state_size

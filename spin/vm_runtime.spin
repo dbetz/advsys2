@@ -1,11 +1,13 @@
 OBJ
   ser : "FullDuplexSerial"
-  vm : "vm_interface"
+  vm : "advsys2_vm"
 
 CON
 
   _INIT_SIZE = vm#_INIT_SIZE
-
+  _MBOX_SIZE = vm#_MBOX_SIZE
+  _STATE_SIZE = vm#_STATE_SIZE
+  
   ' character codes
   CR = $0d
   LF = $0a
@@ -18,39 +20,13 @@ VAR
 PUB init_serial(baudrate, rxpin, txpin)
   ser.start(rxpin, txpin, 0, baudrate)
 
-PUB init(mbox, state, code, data, cache_mbox, cache_line_mask)
-  initParams[vm#INIT_BASE] := data
+PUB init(mbox, state, stack, stack_size, image)
+  initParams[vm#INIT_IMAGE] := image
   initParams[vm#INIT_STATE] := state
   initParams[vm#INIT_MBOX] := mbox
-  initParams[vm#INIT_CACHE_MBOX] := cache_mbox
-  initParams[vm#INIT_CACHE_MASK] := cache_line_mask
-  vm.start(code, @initParams)
-
-PUB load(mbox, state, image, data_end) | main, stack, stack_size, count, p, i, base, offset, size
-
-  main := vm.read_long(mbox, image + vm#IMAGE_MAIN_CODE)
-  stack_size := vm.read_long(mbox, image + vm#IMAGE_STACK_SIZE)
-  stack := data_end - stack_size
-  long[state][vm#STATE_PC] := main
-  long[state][vm#STATE_STACK] := stack
-  long[state][vm#STATE_SP] := stack + stack_size
-  long[state][vm#STATE_FP] := stack + stack_size
-  long[state][vm#STATE_STACK_SIZE] := stack_size
-
-  count := vm.read_long(mbox, image + vm#IMAGE_SECTION_COUNT)
-  p := image + vm#_IMAGE_SIZE
-
-  repeat i from 0 to count - 1
-    base := vm.read_long(mbox, p + vm#SECTION_BASE)
-    offset := vm.read_long(mbox, p + vm#SECTION_OFFSET)
-    size := vm.read_long(mbox, p + vm#SECTION_SIZE)
-    if i > 0
-      repeat while size > 0
-        vm.write_long(mbox, base, vm.read_long(mbox, image + offset))
-        base += 4
-        offset += 4
-        size -= 4
-    p += vm#_SECTION_SIZE
+  initParams[vm#INIT_STACK] := stack
+  initParams[vm#INIT_STACK_SIZE] := stack_size
+  vm.start(@initParams)
 
 PUB single_step(mbox, state)
   state_header(state)
@@ -69,7 +45,7 @@ PRI process_requests(mbox, state, sts)
         do_trap(mbox, state)
       vm#STS_Halt:
         'enable this for debugging
-        'halt(mbox, state, string("HALT"))
+        halt(mbox, state, string("HALT"))
       vm#STS_StackOver:
         halt(mbox, state, string("STACK OVERFLOW"))
       vm#STS_DivideZero:
@@ -93,13 +69,13 @@ PRI halt2(mbox, state)
   repeat
 
 PRI state_header(state) | stack
- stack := long[state][vm#STATE_STACK]
+  stack := long[state][vm#STATE_STACK]
   ser.str(string("STACK "))
   ser.hex(stack, 8)
   ser.str(string(", STACK_TOP "))
-  ser.hex(stack + long[state][vm#STATE_STACK_SIZE], 8)
+  ser.hex(long[state][vm#STATE_STACK_SIZE], 8)
   ser.crlf
-  ser.str(string("PC       OP FP       SP       TOS      SP[0]    SP[1]    SP[2]    SP[3]", $a))
+  ser.str(string("PC       OP FP       SP       TOS      SP[0]    SP[1]    SP[2]    SP[3]", $d, $a))
 
 PRI do_step(mbox, state)
   show_status(mbox, state)
@@ -114,6 +90,21 @@ PRI do_trap(mbox, state) | p, len, ch
     vm#TRAP_PutChar:
       ser.tx(long[state][vm#STATE_TOS])
       pop_tos(state)
+    vm#TRAP_PrintStr:
+      ser.str(long[state][vm#STATE_TOS])
+      pop_tos(state)
+    vm#TRAP_PrintInt:
+      ser.dec(long[state][vm#STATE_TOS])
+      pop_tos(state)
+    vm#TRAP_PrintTab:
+      ser.tx(8)
+    vm#TRAP_PrintNL:
+      ser.crlf
+    vm#TRAP_PrintFlush:
+    other:
+        ser.str(string("UNKNOWN TRAP:"))
+        ser.hex(long[mbox][vm#MBOX_ARG2_FCN], 8)
+        ser.crlf
   if long[state][vm#STATE_STEPPING]
     do_step(mbox, state)
   else
@@ -146,3 +137,19 @@ PRI show_status(mbox, state) | pc, sp, i
     ser.hex(long[sp][i], 8)
   ser.crlf
 
+PUB show_state(state)
+  ser.str(string("fp:"))
+  ser.hex(long[state][vm#STATE_FP], 8)
+  ser.str(string(" sp:"))
+  ser.hex(long[state][vm#STATE_SP], 8)
+  ser.str(string(" tos:"))
+  ser.hex(long[state][vm#STATE_TOS], 8)
+  ser.str(string(" pc:"))
+  ser.hex(long[state][vm#STATE_PC], 8)
+  ser.str(string(" stepping:"))
+  ser.hex(long[state][vm#STATE_STEPPING], 8)
+  ser.str(string(" stack:"))
+  ser.hex(long[state][vm#STATE_STACK], 8)
+  ser.str(string(" stackTop:"))
+  ser.hex(long[state][vm#STATE_STACK_SIZE], 8)
+  ser.crlf
