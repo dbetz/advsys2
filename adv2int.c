@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         Usage();
         
     if (!(fp = fopen(infile, "rb"))) {
-        printf("error: can't open '%s'\n", argv[1]);
+        printf("error: can't open '%s'\n", infile);
         return 1;
     }
         

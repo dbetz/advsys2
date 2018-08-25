@@ -75,7 +75,7 @@ PRI state_header(state) | stack
   ser.str(string("STACK "))
   ser.hex(stack, 8)
   ser.str(string(", STACK_TOP "))
-  ser.hex(long[state][vm#STATE_STACK_SIZE], 8)
+  ser.hex(long[state][vm#STATE_STACK_TOP], 8)
   ser.crlf
   ser.str(string("PC       OP FP       SP       TOS      SP[0]    SP[1]    SP[2]    SP[3]", $d, $a))
 
@@ -153,5 +153,5 @@ PUB show_state(state)
   ser.str(string(" stack:"))
   ser.hex(long[state][vm#STATE_STACK], 8)
   ser.str(string(" stackTop:"))
-  ser.hex(long[state][vm#STATE_STACK_SIZE], 8)
+  ser.hex(long[state][vm#STATE_STACK_TOP], 8)
   ser.crlf

@@ -27,7 +27,7 @@ STATE_TOS         = 2
 STATE_PC          = 3
 STATE_STEPPING    = 4
 STATE_STACK       = 5
-STATE_STACK_SIZE  = 6
+STATE_STACK_TOP   = 6
 _STATE_SIZE       = 7
 
 VM_Continue       = 1
