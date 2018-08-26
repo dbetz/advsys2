@@ -20,6 +20,7 @@ def getc()
 {
     asm {
         TRAP 0
+	RETURN
     }
 }
 

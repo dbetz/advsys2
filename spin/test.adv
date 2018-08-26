@@ -15,11 +15,20 @@ def baz(a, b)
     return (foo(a) << 16) | bar(b);
 }
 
+def getc()
+{
+    asm {
+        TRAP 0
+        RETURN
+    }
+}
+
 def main()
 {
     var a = 2;
     var b;
     var c = 99;
+    var ch;
     print "Hello, world!";
     print a, b, c;
     print a < c ? 111 : 222;
@@ -30,5 +39,18 @@ def main()
     print bar(100);
     b = baz(10, 20);
     print b >> 16, b & 0xffff;
+    while (1) {
+        ch = getc();
+        if (ch == 'n')
+            print "North";
+        else if (ch == 's')
+            print "South";
+        else if (ch == 'e')
+            print "East";
+        else if (ch == 'w')
+            print "West";
+        else if (ch == 'q')
+            print "Quit";
+    }
 }
 

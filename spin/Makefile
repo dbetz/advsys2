@@ -9,9 +9,9 @@ step:	advsys2_step.binary advsys2.dat
 %.binary:	%.spin vm_runtime.spin advsys2_vm.spin advsys2.dat
 	openspin $<
 
-advsys2.dat:	../test2.adv
-	../adv2com ../test2.adv
-	mv ../test2.dat advsys2.dat
+advsys2.dat:	test.adv
+	../adv2com test.adv
+	mv test.dat advsys2.dat
 
 dump:
 	od -Ax -tx4 advsys2.dat

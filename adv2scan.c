@@ -82,7 +82,7 @@ static int HexNumberToken(ParseContext *c);
 static int BinaryNumberToken(ParseContext *c);
 static int StringToken(ParseContext *c);
 static int CharToken(ParseContext *c);
-static int LiteralChar(ParseContext *c);
+static int LiteralChar(ParseContext *c, int ch);
 
 /* InitScan - initialize the token scanner */
 void InitScan(ParseContext *c)
@@ -522,10 +522,11 @@ static int StringToken(ParseContext *c)
 
     /* collect the string */
     p = c->token; len = 0;
-    while ((ch = GetChar(c)) != EOF && ch != '"') {
+    while ((ch = GetChar(c)) != '"') {
+        ch = LiteralChar(c, ch);
         if (++len > MAXTOKEN)
             ParseError(c, "String too long");
-        *p++ = (ch == '\\' ? LiteralChar(c) : ch);
+        *p++ = ch;
     }
     *p = '\0';
 
@@ -540,7 +541,7 @@ static int StringToken(ParseContext *c)
 /* CharToken - get a character constant */
 static int CharToken(ParseContext *c)
 {
-    int ch = LiteralChar(c);
+    int ch = LiteralChar(c, GetChar(c));
     if (GetChar(c) != '\'')
         ParseError(c,"Expecting a closing single quote");
     c->token[0] = ch;
@@ -549,24 +550,60 @@ static int CharToken(ParseContext *c)
     return T_NUMBER;
 }
 
-/* LiteralChar - get a character from a literal string */
-static int LiteralChar(ParseContext *c)
+/* CollectHexChar - collect a hex character code */
+static int CollectHexChar(ParseContext *c)
 {
-    int ch;
-    switch (ch = GetChar(c)) {
-    case 'n': 
-        ch = '\n';
-        break;
-    case 'r':
-        ch = '\r';
-        break;
-    case 't':
-        ch = '\t';
-        break;
-    case EOF:
-        ch = '\\';
-        break;
+    int value,ch;
+    if ((ch = GetChar(c)) == EOF || !isxdigit(ch)) {
+        UngetC(c);
+        return 0;
     }
+    value = isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+    if ((ch = GetChar(c)) == EOF || !isxdigit(ch)) {
+        UngetC(c);
+        return value;
+    }
+    return (value << 4) | (isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+}
+
+/* CollectOctalChar - collect an octal character code */
+static int CollectOctalChar(ParseContext *c,int ch)
+{
+    int value = ch - '0';
+    if ((ch = GetChar(c)) == EOF || ch < '0' || ch > '7') {
+        UngetC(c);
+        return value;
+    }
+    value = (value << 3) | (ch - '0');
+    if ((ch = GetChar(c)) == EOF || ch < '0' || ch > '7') {
+        UngetC(c);
+        return value;
+    }
+    return (value << 3) | (ch - '0');
+}
+
+/* LiteralChar - get a character from a literal string */
+static int LiteralChar(ParseContext *c, int ch)
+{
+    if (ch == '\\')
+        switch (ch = GetChar(c)) {
+        case 'b':   ch = '\b'; break;
+        case 'f':   ch = '\f'; break;
+        case 'n':   ch = '\n'; break;
+        case 'r':   ch = '\r'; break;
+        case 't':   ch = '\t'; break;
+        case 'x':   ch = CollectHexChar(c); break;
+        case '"':   ch = '"';  break;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':   ch = CollectOctalChar(c,ch); break;
+        case EOF:   ch = '\\'; UngetC(c); break;
+        }
     return ch;
 }
 
