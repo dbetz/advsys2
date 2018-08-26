@@ -1,13 +1,12 @@
 # advsys2
 A major update to AdvSys switching to a C-like syntax.
 
+- add implementations of TRY, TRYEXIT, and THROW to PASM VM.
 - Implement the finally clause.
-- Add comma operator.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.
 - Need a way to parse user input.
 - Need to support word lists for NOUNS, VERBS, etc.
-- Need to update the Spin version of the bytecode interpreter.
 
 Language syntax:
 
