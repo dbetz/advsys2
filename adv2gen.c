@@ -56,7 +56,7 @@ uint8_t *code_functiondef(ParseContext *c, ParseTreeNode *expr, int *pLength)
         local = local->next;
     }
     code_statement(c, expr->u.functionDef.body);
-    putcbyte(c, OP_RETURN);
+    putcbyte(c, OP_RETURNZ);
     *pLength = c->codeFree - base;
     return base;
 }

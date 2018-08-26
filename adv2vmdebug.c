@@ -47,6 +47,7 @@ OTDEF OpcodeTable[] = {
 { OP_CALL,      "CALL",     FMT_BYTE    },
 { OP_FRAME,     "FRAME",    FMT_BYTE    },
 { OP_RETURN,    "RETURN",   FMT_NONE    },
+{ OP_RETURNZ,   "RETURNZ",  FMT_NONE    },
 { OP_DROP,      "DROP",     FMT_NONE    },
 { OP_DUP,       "DUP",      FMT_NONE    },
 { OP_TUCK,      "TUCK",     FMT_NONE    },

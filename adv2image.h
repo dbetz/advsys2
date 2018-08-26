@@ -91,18 +91,19 @@ fp -> arg 1
 #define OP_CALL         0x21    /* call a function */
 #define OP_FRAME        0x22    /* create a stack frame */
 #define OP_RETURN       0x23    /* remove a stack frame and return from a function call */
-#define OP_DROP         0x24    /* drop the top element of the stack */
-#define OP_DUP          0x25    /* duplicate the top element of the stack */
-#define OP_TUCK         0x26    /* a b -> b a b */
-#define OP_SWAP         0x27    /* swap the top two elements on the stack */
-#define OP_TRAP         0x28    /* trap to handler */
-#define OP_SEND         0x29    /* send a message to an object */
-#define OP_DADDR        0x2a    /* load the address of an object in data space */
-#define OP_PADDR        0x2b    /* load the address of an object property */
-#define OP_CLASS        0x2c    /* load the class of an object */
-#define OP_TRY          0x2d    /* enter try code */
-#define OP_TRYEXIT      0x2e    /* exit try code */
-#define OP_THROW        0x2f    /* throw an exception */
+#define OP_RETURNZ      0x24    /* remove a stack frame and return from a function call */
+#define OP_DROP         0x25    /* drop the top element of the stack */
+#define OP_DUP          0x26    /* duplicate the top element of the stack */
+#define OP_TUCK         0x27    /* a b -> b a b */
+#define OP_SWAP         0x28    /* swap the top two elements on the stack */
+#define OP_TRAP         0x29    /* trap to handler */
+#define OP_SEND         0x2a    /* send a message to an object */
+#define OP_DADDR        0x2b    /* load the address of an object in data space */
+#define OP_PADDR        0x2c    /* load the address of an object property */
+#define OP_CLASS        0x2d    /* load the class of an object */
+#define OP_TRY          0x2e    /* enter try code */
+#define OP_TRYEXIT      0x2f    /* exit try code */
+#define OP_THROW        0x30    /* throw an exception */
 
 /* VM trap codes */
 enum {

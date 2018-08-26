@@ -1,5 +1,20 @@
 var xxx, yyy[], zzz[4] = 3, qqq[] = { 1, 2, 3 }, sss;
 
+def foo(x)
+{
+    return x+1;
+}
+
+def bar(x)
+{
+    return x-1;
+}
+
+def baz(a, b)
+{
+    return (foo(a) << 16) | bar(b);
+}
+
 def main()
 {
     var a = 2;
@@ -10,5 +25,9 @@ def main()
     print a > c ? 333 : 444;
     a = (11, b + 22, c + 33);
     print a;
+    print foo(100);
+    print bar(100);
+    b = baz(10, 20);
+    print b >> 16, b & 0xffff;
 }
 

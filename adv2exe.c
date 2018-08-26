@@ -261,6 +261,10 @@ int Execute(ImageHdr *image, int debug)
             Reserve(i, cnt);
             *i->sp = tmp;
             break;
+        case OP_RETURNZ:
+            CPush(i, i->tos);
+            i->tos = 0;
+            // fall through
         case OP_RETURN:
             i->pc = (uint8_t *)i->sp[0];
             tmp = i->sp[1];

@@ -94,19 +94,20 @@ OP_INDEX        = $20    ' index into a vector
 OP_CALL         = $21    ' call a function */
 OP_FRAME        = $22    ' create a stack frame */
 OP_RETURN       = $23    ' from a function */
-OP_DROP         = $24    ' drop the top element of the stack
-OP_DUP          = $25    ' duplicate the top element of the stack
-OP_TUCK         = $26    ' a b -> b a b
-OP_SWAP         = $27    ' swap the top to elements of the stack
-OP_TRAP         = $28    ' invoke a trap handler
-OP_SEND         = $29    ' send a message to an object
-OP_DADDR        = $2a    ' load the address of something in data space
-OP_PADDR        = $2b    ' load the address of a property value
-OP_CLASS        = $2c    ' get the class of an object
-OP_TRY          = $2d    ' enter a try block
-OP_TRYEXIT      = $2e    ' exit a try block
-OP_THROW        = $2f    ' throw an exception
-OP_LAST         = $2f
+OP_RETURNZ      = $24    ' from a function */
+OP_DROP         = $25    ' drop the top element of the stack
+OP_DUP          = $26    ' duplicate the top element of the stack
+OP_TUCK         = $27    ' a b -> b a b
+OP_SWAP         = $28    ' swap the top to elements of the stack
+OP_TRAP         = $29    ' invoke a trap handler
+OP_SEND         = $2a    ' send a message to an object
+OP_DADDR        = $2b    ' load the address of something in data space
+OP_PADDR        = $2c    ' load the address of a property value
+OP_CLASS        = $2d    ' get the class of an object
+OP_TRY          = $2e    ' enter a try block
+OP_TRYEXIT      = $2f    ' exit a try block
+OP_THROW        = $30    ' throw an exception
+OP_LAST         = $30
 
 DIV_OP          = 0
 REM_OP          = 1
@@ -334,6 +335,7 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_CALL               ' call a function
         jmp     #_OP_FRAME              ' push a frame onto the stack
         jmp     #_OP_RETURN             ' return from a function
+        jmp     #_OP_RETURNZ            ' push zero an dreturn from a function
         jmp     #_OP_DROP               ' drop the top element of the stack
         jmp     #_OP_DUP                ' duplicate the top element of the stack
         jmp     #_OP_TUCK               ' a b -> b a b
@@ -569,6 +571,10 @@ _OP_FRAME               ' push a frame onto the stack
         wrlong  r2,sp
         jmp     #_next
 
+_OP_RETURNZ             ' push zero and return from a function
+        call    #push_tos
+        mov     tos,#0
+        ' fall through
 _OP_RETURN              ' return from a function
         rdlong  pc,sp
         add     sp,#4

@@ -6,7 +6,7 @@ run:	advsys2_run.binary advsys2.dat
 step:	advsys2_step.binary advsys2.dat
 	proploader -s -t advsys2_step.binary
 
-%.binary:	%.spin advsys2.dat
+%.binary:	%.spin vm_runtime.spin advsys2_vm.spin advsys2.dat
 	openspin $<
 
 advsys2.dat:	../test2.adv

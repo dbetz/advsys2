@@ -77,7 +77,7 @@ PRI state_header(state) | stack
   ser.str(string(", STACK_TOP "))
   ser.hex(long[state][vm#STATE_STACK_TOP], 8)
   ser.crlf
-  ser.str(string("PC       OP FP       SP       TOS      SP[0]    SP[1]    SP[2]    SP[3]", $d, $a))
+  ser.str(string("PC       OP FP       SP       TOS      SP[0]...", $d, $a))
 
 PRI do_step(mbox, state)
   show_status(mbox, state)
@@ -99,7 +99,7 @@ PRI do_trap(mbox, state) | p, len, ch
       ser.dec(long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintTab:
-      ser.tx(8)
+      ser.tx(9)
     vm#TRAP_PrintNL:
       ser.crlf
     vm#TRAP_PrintFlush:
@@ -122,21 +122,28 @@ PRI pop_tos(state) | sp
   long[state][vm#STATE_TOS] := long[sp]
   long[state][vm#STATE_SP] := sp + 4
 
-PRI show_status(mbox, state) | pc, sp, i
+PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   pc := long[state][vm#STATE_PC]
   ser.hex(pc - codeBase, 8)
   ser.tx(" ")
   ser.hex(vm.read_byte(mbox, pc), 2)
   ser.tx(" ")
-  ser.hex(long[state][vm#STATE_FP], 8)
+  fp := long[state][vm#STATE_FP]
+  ser.hex(fp, 8)
   ser.tx(" ")
   sp := long[state][vm#STATE_SP]
   ser.hex(sp, 8)
   ser.tx(" ")
   ser.hex(long[state][vm#STATE_TOS], 8)
-  repeat i from 0 to 3 
+  stackTop := long[state][vm#STATE_STACK_TOP]
+  repeat while sp < stackTop
+    if fp == sp
+      ser.str(string(" <fp>"))
     ser.tx(" ")
-    ser.hex(long[sp][i], 8)
+    ser.hex(long[sp], 8)
+    sp += 4
+  if fp == stackTop
+    ser.str(string(" <fp>"))
   ser.crlf
 
 PUB show_state(state)
