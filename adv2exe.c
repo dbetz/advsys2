@@ -372,7 +372,7 @@ static void Throw(Interpreter *i, VMVALUE value)
 {
     VMVALUE tmp;
     if (!i->efp)
-        Abort(i, "uncaught throw %d", i->tos);
+        Abort(i, "uncaught throw %d", value);
     i->sp = (VMVALUE *)i->efp;
     tmp = Pop(i);
     i->fp = (VMVALUE *)Pop(i);

@@ -1385,7 +1385,7 @@ static ParseTreeNode *ParseSelector(ParseContext *c)
     }
     else if (tkn == '(') {
         SaveToken(c, tkn);
-        node = ParseSimplePrimary(c);
+        node = ParseExpr(c);
     }
     else {
         ParseError(c, "expecting a property name or parenthesized expression");
@@ -1424,7 +1424,7 @@ static ParseTreeNode *ParseSend(ParseContext *c)
         do {
             NodeListEntry *actual;
             actual = (NodeListEntry *)LocalAlloc(c, sizeof(NodeListEntry));
-            actual->node = ParseExpr(c);
+            actual->node = ParseAssignmentExpr(c);
             actual->next = NULL;
             *pLast = actual;
             pLast = &actual->next;

@@ -44,6 +44,8 @@ STS_Success       = 4
 STS_StackOver     = 5
 STS_DivideZero    = 6
 STS_IllegalOpcode = 7
+STS_PropNotFound  = 8
+STS_UncaughtThrow = 9
 
 TRAP_GetChar      = 0
 TRAP_PutChar      = 1
@@ -352,7 +354,7 @@ opcode_table                            ' opcode dispatch table
 _OP_HALT               ' halt
         call    #store_state
         mov     r1,#STS_Halt
-	    jmp	#end_command
+	    jmp	    #end_command
 
 _OP_BRT                ' branch on true
         tjnz    tos,#take_branch
@@ -617,6 +619,17 @@ _OP_TRAP
         jmp     #end_command
 
 _OP_SEND               ' send a message to an object
+        add     pc,#1   '   skip past the argument count
+        mov     r2,tos
+        mov     tos,pc
+        mov     r1,sp
+        add     r1,#4
+        rdlong  r1,r1 wz
+   if_z rdlong  r1,sp
+        call    #prop_addr
+        tjz     r3,#properr
+        rdlong  pc,r3
+        add     pc,cbase
         jmp     #_next
 
 _OP_DADDR              ' load the address of something in data space
@@ -624,8 +637,15 @@ _OP_DADDR              ' load the address of something in data space
         jmp     #_next
 
 _OP_PADDR              ' load the address of a property value
-        jmp     #_next
-
+        call    #pop_r1
+        mov     r2,tos
+        call    #prop_addr
+        mov     tos,r3 wz
+  if_ne jmp     #_next
+properr call    #store_state
+        mov     r1,#STS_PropNotFound
+	    jmp	    #end_command
+                
 _OP_CLASS              ' get the class of an object
         add     tos,dbase
         rdlong  tos,tos
@@ -640,6 +660,35 @@ _OP_TRYEXIT            ' exit a try block
 _OP_THROW              ' throw an exception
         jmp     #_next
 
+' input:
+'    r1 is object address
+'    r2 is the property tag
+' output:
+'    r3 is address of the property value
+prop_addr
+checkC  add     r1,dbase    ' get the address of the object in data space
+        mov     r3,r1       ' get the number of properties
+        add     r3,#4
+        rdlong  r4,r3 wz
+   if_z jmp     #nextC      ' skip this class if there are no properties
+        add     r3,#4       ' point to the first tag/value pair
+nextP   rdlong  r5,r3       ' get the tag
+        and     r5,lowMask  ' mask off the shared bit
+        cmp     r5,r2 wz    ' check to see if it matches
+   if_z jmp     #match
+        add     r3,#8       ' no match, move ahead to the next property
+        djnz    r4,#nextP   ' check next property
+nextC   rdlong  r1,r1 wz
+  if_nz jmp     #checkC     ' check next class
+        mov     r3,#0       ' property not found
+prop_addr_ret
+        ret
+        
+match   add     r3,#4       ' get the address of the property value
+        jmp     prop_addr_ret
+        
+lowMask long    $7fffffff
+        
 imm16
         call    #get_code_byte  ' bits 15:8
         mov     r2,r1
@@ -824,11 +873,7 @@ dbase       long    0
 cbase       long    0
 sbase       long    0
 
-' registers for use by inline code
-t1          long    0
-t2          long    0
-t3          long    0
-t4          long    0
+' virtual machine registers
 tos         long    0
 sp          long    0
 fp          long    0
@@ -844,5 +889,7 @@ stepping    long    0
 r1          long    0
 r2          long    0
 r3          long    0
+r4          long    0
+r5          long    0
 
             fit     496

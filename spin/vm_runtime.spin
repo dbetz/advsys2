@@ -55,6 +55,10 @@ PRI process_requests(mbox, state, sts)
         halt(mbox, state, string("DIVIDE BY ZERO"))
       vm#STS_IllegalOpcode:
         halt(mbox, state, string("ILLEGAL OPCODE"))
+      vm#STS_PropNotFound:
+        halt(mbox, state, string("PROPERTY NOT FOUND"))
+      vm#STS_UncaughtThrow:
+        halt(mbox, state, string("UNCAUGHT THROW"))
       other:
         ser.str(string("sts: "))
         ser.hex(sts, 8)
