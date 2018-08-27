@@ -25,10 +25,11 @@ STATE_FP          = 0
 STATE_SP          = 1
 STATE_TOS         = 2
 STATE_PC          = 3
-STATE_STEPPING    = 4
-STATE_STACK       = 5
-STATE_STACK_TOP   = 6
-_STATE_SIZE       = 7
+STATE_EFP         = 4
+STATE_STEPPING    = 5
+STATE_STACK       = 6
+STATE_STACK_TOP   = 7
+_STATE_SIZE       = 8
 
 VM_Continue       = 1
 VM_ReadLong       = 2
@@ -161,7 +162,7 @@ _init
         mov     r1,par
 
         ' get the image address
-        rdlong  image,r1
+        rdlong  r2,r1
         add     r1,#4
         
         ' get the state vector
@@ -186,15 +187,15 @@ _init
         mov     fp,sp
 
         ' get the memory area base addresses
-        mov     r1,image
+        mov     r1,r2
         rdlong  dbase,r1    ' get the data space address
-        add     dbase,image
+        add     dbase,r2
         add     r1,#8
         rdlong  cbase,r1    ' get the code space address
-        add     cbase,image
+        add     cbase,r2
         add     r1,#8
         rdlong  sbase,r1    ' get the string space address
-        add     sbase,image
+        add     sbase,r2
         add     r1,#8
         rdlong  pc,r1
         add     pc,cbase
@@ -202,6 +203,9 @@ _init
         ' put the address of a halt in tos
         mov     tos,cbase
         add     tos,#1
+        
+        ' initialize the exception stack
+        mov     efp,#0
 
         ' return the initial state
         call    #store_state
@@ -245,12 +249,14 @@ _VM_Continue
         add     r1,#4
         rdlong  pc,r1           ' load pc
         add     r1,#4
+        rdlong  efp,r1          ' load efp
+        add     r1,#4
         rdlong  stepping,r1     ' load stepping
         jmp     #_start
 
 _VM_ReadLong
         rdlong  r1,arg_sts_ptr
-        call    #_read_long
+        rdlong  r1,r1
         wrlong  r1,arg2_fcn_ptr
         mov     r1,#STS_Success
         jmp     #end_command
@@ -258,40 +264,43 @@ _VM_ReadLong
 _VM_WriteLong
         rdlong  r1,arg_sts_ptr
         rdlong  r2,arg2_fcn_ptr
-        call    #_write_long
+        wrlong  r2,r1
         mov     r1,#STS_Success
         jmp     #end_command
 
 _VM_ReadByte
         rdlong  r1,arg_sts_ptr
-        call    #_read_byte
+        rdbyte  r1,r1
         wrlong  r1,arg2_fcn_ptr
         mov     r1,#STS_Success
         jmp     #end_command
 
 store_state
-        mov     r1,state_ptr
-        wrlong  fp,r1       ' store fp
-        add     r1,#4
-        wrlong  sp,r1       ' store sp
-        add     r1,#4
-        wrlong  tos,r1      ' store tos
-        add     r1,#4
-        wrlong  pc,r1       ' store pc
-        add     r1,#4
-        wrlong  stepping,r1 ' store stepping
-        add     r1,#4
-        wrlong  stack,r1    ' store stack
-        add     r1,#4
-        wrlong  stackTop,r1 ' store stackTop (over stack size)
+        mov     2,state_ptr
+        wrlong  fp,r2       ' store fp
+        add     r2,#4
+        wrlong  sp,r2       ' store sp
+        add     r2,#4
+        wrlong  tos,r2      ' store tos
+        add     r2,#4
+        wrlong  pc,r2       ' store pc
+        add     r2,#4
+        wrlong  efp,r2      ' store efp
+        add     r2,#4
+        wrlong  stepping,r2 ' store stepping
+        add     r2,#4
+        wrlong  stack,r2    ' store stack
+        add     r2,#4
+        wrlong  stackTop,r2 ' store stackTop (over stack size)
 store_state_ret
         ret
 
 _next   tjz     stepping,#_start
 
 _step_end
-        call    #store_state
         mov     r1,#STS_Step
+end_error
+        call    #store_state
         jmp     #end_command
 
 _start  call    #get_code_byte
@@ -352,9 +361,8 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_THROW              ' throw an exception
 
 _OP_HALT               ' halt
-        call    #store_state
         mov     r1,#STS_Halt
-	    jmp	    #end_command
+	    jmp	    #end_error
 
 _OP_BRT                ' branch on true
         tjnz    tos,#take_branch
@@ -516,27 +524,21 @@ _OP_SLIT               ' load a short literal (-128 to 127)
         jmp     #_next
 
 _OP_LOAD               ' load a long from memory
-        mov     r1,tos
-        call    #_read_long
-        mov     tos,r1
+        rdlong  tos,tos
         jmp     #_next
         
 _OP_LOADB              ' load a byte from memory
-        mov     r1,tos
-        call    #_read_byte
-        mov     tos,r1
+        rdbyte  tos,tos
         jmp     #_next
 
 _OP_STORE              ' store a long into memory
         call    #pop_r1
-        mov     r2,tos
-        call    #_write_long
+        wrlong  tos,r1
         jmp     #_next
         
 _OP_STOREB             ' store a byte into memory
         call    #pop_r1
-        mov     r2,tos
-        call    #_write_byte
+        wrbyte  tos,r1
         jmp     #_next
 
 _OP_LADDR              ' load a local variable relative to the frame pointer
@@ -614,9 +616,8 @@ _OP_SWAP               ' swap the top to elements of the stack
 _OP_TRAP
         call    #get_code_byte
         wrlong  r1,arg2_fcn_ptr
-        call    #store_state
         mov     r1,#STS_Trap
-        jmp     #end_command
+        jmp     #end_error
 
 _OP_SEND               ' send a message to an object
         add     pc,#1   '   skip past the argument count
@@ -633,7 +634,9 @@ _OP_SEND               ' send a message to an object
         jmp     #_next
 
 _OP_DADDR              ' load the address of something in data space
-        add     tos,dbase
+        call    #imm32
+        add     r1,dbase
+        mov     tos,r1
         jmp     #_next
 
 _OP_PADDR              ' load the address of a property value
@@ -642,9 +645,8 @@ _OP_PADDR              ' load the address of a property value
         call    #prop_addr
         mov     tos,r3 wz
   if_ne jmp     #_next
-properr call    #store_state
-        mov     r1,#STS_PropNotFound
-	    jmp	    #end_command
+properr mov     tos,#1
+        jmp     #throwerr
                 
 _OP_CLASS              ' get the class of an object
         add     tos,dbase
@@ -652,13 +654,44 @@ _OP_CLASS              ' get the class of an object
         jmp     #_next
 
 _OP_TRY                ' enter a try block
+        call    #imm16
+        mov     r2,sp
+        sub     r2,#16
+        cmp     r2,stack wc,wz
+  if_b  jmp     #stack_overflow_err
+        call    #push_tos
+        add     r1,pc
+        sub     sp,#4
+        wrlong  sp,r1
+        sub     sp,#4
+        wrlong  fp,sp
+        sub     sp,#4
+        wrlong  efp,sp
+        mov     efp,sp
         jmp     #_next
 
 _OP_TRYEXIT            ' exit a try block
+        call    #pop_r1
+        rdlong  fp,sp
+        add     sp,#8
+        call    #pop_tos
+        mov     efp,r1
         jmp     #_next
 
 _OP_THROW              ' throw an exception
+        tjz     efp,#throwerr
+        mov     sp,efp
+        call    #pop_r1
+        rdlong  fp,sp
+        add     sp,#4
+        rdlong  pc,sp
+        add     sp,#4
+        mov     efp,r1
         jmp     #_next
+        
+throwerr
+        mov     r1,#STS_UncaughtThrow
+        jmp     #end_error
 
 ' input:
 '    r1 is object address
@@ -689,6 +722,8 @@ match   add     r3,#4       ' get the address of the property value
         
 lowMask long    $7fffffff
         
+' output:
+'   r1 is immediate value
 imm16
         call    #get_code_byte  ' bits 15:8
         mov     r2,r1
@@ -699,6 +734,8 @@ imm16
 imm16_ret
         ret
 
+' output:
+'   r1 is immediate value
 imm32
         call    #get_code_byte  ' bits 31:24
         mov     r2,r1
@@ -753,62 +790,15 @@ cog_start        long COG_BASE	        'Start of COG access window in VM memory 
 ' output:
 '    r1 is value
 '    pc is incremented
-get_code_byte           rdbyte  r1, pc
-                        add     pc, #1
-get_code_byte_ret       ret
-
-' Input:
-'    r1 is address
-' output:
-'    r1 is value
-_read_byte              rdbyte  r1, r1
-_read_byte_ret          ret
-
-' input:
-'    r1 is address
-' output:
-'    r1 is value
-_read_long              cmp     r1, cog_start wc        'Check for COG memory access
-              if_nc     jmp     #read_cog_long
-
-                        rdlong  r1, r1
-                        jmp     #_read_long_ret
-
-read_cog_long           shr     r1, #2
-                        movs    :rcog, r1
-                        nop
-:rcog                   mov     r1, 0-0
-_read_long_ret          ret
-
-' Input:
-'    r1 is address
-'    r2 is value
-' trashes:
-'    r1
-_write_byte             wrbyte  r2, r1
-_write_byte_ret         ret
-
-' input:
-'    r1 is address
-'    r2 is value
-' trashes:
-'    r1
-_write_long             cmp     r1, cog_start wc        'Check for COG memory access
-              if_nc     jmp     #write_cog_long
-
-                        wrlong  r2, r1
-                        jmp     #_write_long_ret
-
-write_cog_long          shr     r1, #2
-                        movd    :wcog, r1
-                        nop
-:wcog                   mov     0-0, r2
-_write_long_ret         ret
+get_code_byte
+        rdbyte  r1, pc
+        add     pc, #1
+get_code_byte_ret
+        ret
 
 ' constants
 zero                    long    0
 allOnes                 long    $ffff_ffff
-dstinc                  long    1<<9    ' increment for the destination field of an instruction
 
 ' vm mailbox variables
 cmd_ptr                 long    0
@@ -868,7 +858,6 @@ fast_div                ' tos = r1 / tos
 ' adapted from Heater's ZOG
 
 ' base addresses
-image       long    0
 dbase       long    0
 cbase       long    0
 sbase       long    0

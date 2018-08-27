@@ -82,7 +82,7 @@ PRI state_header(state) | stack
   ser.str(string(", STACK_TOP "))
   ser.hex(long[state][vm#STATE_STACK_TOP], 8)
   ser.crlf
-  ser.str(string("PC       OP FP       SP       TOS      SP[0]...", $d, $a))
+  ser.str(string("PC       OP FP       SP       EFP        TOS      SP[0]...", $d, $a))
 
 PRI do_step(mbox, state)
   show_status(mbox, state)
@@ -139,6 +139,8 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   sp := long[state][vm#STATE_SP]
   ser.hex(sp, 8)
   ser.tx(" ")
+  ser.hex(long[state][vm#STATE_EFP], 8)
+  ser.str(string("   "))
   ser.hex(long[state][vm#STATE_TOS], 8)
   stackTop := long[state][vm#STATE_STACK_TOP]
   repeat while sp < stackTop
@@ -160,6 +162,8 @@ PUB show_state(state)
   ser.hex(long[state][vm#STATE_TOS], 8)
   ser.str(string(" pc:"))
   ser.hex(long[state][vm#STATE_PC], 8)
+  ser.str(string(" efp:"))
+  ser.hex(long[state][vm#STATE_EFP], 8)
   ser.str(string(" stepping:"))
   ser.hex(long[state][vm#STATE_STEPPING], 8)
   ser.str(string(" stack:"))
