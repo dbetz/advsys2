@@ -319,9 +319,11 @@ static void ParseObject(ParseContext *c, char *className)
             uint8_t *code;
             int codeLength;
             node = ParseMethod(c);
-            PrintNode(c, node, 0);
+            if (c->debugMode)
+                PrintNode(c, node, 0);
             code = code_functiondef(c, node, &codeLength);
-            DecodeFunction(c->codeBuf, code, codeLength);
+            if (c->debugMode)
+                DecodeFunction(c->codeBuf, code, codeLength);
             p->value = (VMVALUE)(code - c->codeBuf);
         }
         
