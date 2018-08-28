@@ -31,6 +31,18 @@ def baz(a, b)
     return (foo(a) << 16) | bar(b);
 }
 
+def getp(obj, prop)
+{
+    var value;
+    try {
+        value = obj.(prop);
+    }
+    catch (e) {
+        value = 0;
+    }
+    return value;
+}
+
 def getc()
 {
     asm {
@@ -64,6 +76,8 @@ def main()
     print obj2.p11, obj2.p12, obj2.p13;
     print [obj2 px 1,2];
     print [obj2 py 3,4];
+    print getp(obj2, p11);
+    print getp(obj1, p21);
     while (1) {
         ch = getc();
         if (ch == 'n')

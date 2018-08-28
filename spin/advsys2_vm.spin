@@ -56,10 +56,6 @@ TRAP_PrintTab     = 4
 TRAP_PrintNL      = 5
 TRAP_PrintFlush   = 6
 
-' must match memory base addresses in db_config.h
-HUB_BASE		= $00000000	' must be zero
-COG_BASE		= $10000000
-
 ' virtual machine opcodes
 OP_HALT         = $00    ' halt
 OP_BRT          = $01    ' branch on true
@@ -276,7 +272,7 @@ _VM_ReadByte
         jmp     #end_command
 
 store_state
-        mov     2,state_ptr
+        mov     r2,state_ptr
         wrlong  fp,r2       ' store fp
         add     r2,#4
         wrlong  sp,r2       ' store sp
@@ -291,7 +287,7 @@ store_state
         add     r2,#4
         wrlong  stack,r2    ' store stack
         add     r2,#4
-        wrlong  stackTop,r2 ' store stackTop (over stack size)
+        wrlong  stackTop,r2 ' store stackTop
 store_state_ret
         ret
 
@@ -633,7 +629,13 @@ _OP_SEND               ' send a message to an object
         add     pc,cbase
         jmp     #_next
 
+_OP_CLASS              ' get the class of an object
+        add     tos,dbase
+        rdlong  tos,tos
+        jmp     #_next
+
 _OP_DADDR              ' load the address of something in data space
+        call    #push_tos
         call    #imm32
         add     r1,dbase
         mov     tos,r1
@@ -646,38 +648,8 @@ _OP_PADDR              ' load the address of a property value
         mov     tos,r3 wz
   if_ne jmp     #_next
 properr mov     tos,#1
-        jmp     #throwerr
-                
-_OP_CLASS              ' get the class of an object
-        add     tos,dbase
-        rdlong  tos,tos
-        jmp     #_next
-
-_OP_TRY                ' enter a try block
-        call    #imm16
-        mov     r2,sp
-        sub     r2,#16
-        cmp     r2,stack wc,wz
-  if_b  jmp     #stack_overflow_err
-        call    #push_tos
-        add     r1,pc
-        sub     sp,#4
-        wrlong  sp,r1
-        sub     sp,#4
-        wrlong  fp,sp
-        sub     sp,#4
-        wrlong  efp,sp
-        mov     efp,sp
-        jmp     #_next
-
-_OP_TRYEXIT            ' exit a try block
-        call    #pop_r1
-        rdlong  fp,sp
-        add     sp,#8
-        call    #pop_tos
-        mov     efp,r1
-        jmp     #_next
-
+        ' fall through
+        
 _OP_THROW              ' throw an exception
         tjz     efp,#throwerr
         mov     sp,efp
@@ -692,6 +664,32 @@ _OP_THROW              ' throw an exception
 throwerr
         mov     r1,#STS_UncaughtThrow
         jmp     #end_error
+
+                
+_OP_TRY                ' enter a try block
+        call    #imm16
+        mov     r2,sp
+        sub     r2,#16
+        cmp     r2,stack wc,wz
+  if_b  jmp     #stack_overflow_err
+        call    #push_tos
+        add     r1,pc
+        sub     sp,#4
+        wrlong  r1,sp
+        sub     sp,#4
+        wrlong  fp,sp
+        sub     sp,#4
+        wrlong  efp,sp
+        mov     efp,sp
+        jmp     #_next
+
+_OP_TRYEXIT            ' exit a try block
+        call    #pop_r1
+        rdlong  fp,sp
+        add     sp,#8
+        call    #pop_tos
+        mov     efp,r1
+        jmp     #_next
 
 ' input:
 '    r1 is object address
@@ -782,8 +780,6 @@ stack_overflow_err
 divide_by_zero_err
         mov     r1,#STS_DivideZero
         jmp     #end_command
-
-cog_start        long COG_BASE	        'Start of COG access window in VM memory space
 
 ' input:
 '    pc is address

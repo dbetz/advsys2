@@ -75,15 +75,6 @@ PRI halt2(mbox, state)
   show_status(mbox, state)
   repeat
 
-PRI state_header(state) | stack
-  stack := long[state][vm#STATE_STACK]
-  ser.str(string("STACK "))
-  ser.hex(stack, 8)
-  ser.str(string(", STACK_TOP "))
-  ser.hex(long[state][vm#STATE_STACK_TOP], 8)
-  ser.crlf
-  ser.str(string("PC       OP FP       SP       EFP        TOS      SP[0]...", $d, $a))
-
 PRI do_step(mbox, state)
   show_status(mbox, state)
   repeat while ser.rx <> " "
@@ -126,6 +117,15 @@ PRI pop_tos(state) | sp
   sp := long[state][vm#STATE_SP]
   long[state][vm#STATE_TOS] := long[sp]
   long[state][vm#STATE_SP] := sp + 4
+
+PRI state_header(state) | stack
+  stack := long[state][vm#STATE_STACK]
+  ser.str(string("STACK "))
+  ser.hex(stack, 8)
+  ser.str(string(", STACK_TOP "))
+  ser.hex(long[state][vm#STATE_STACK_TOP], 8)
+  ser.crlf
+  ser.str(string("PC       OP FP       SP       EFP        TOS      SP[0]...", $d, $a))
 
 PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   pc := long[state][vm#STATE_PC]
