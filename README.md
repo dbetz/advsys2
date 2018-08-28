@@ -1,7 +1,6 @@
 # advsys2
 A major update to AdvSys switching to a C-like syntax.
 
-- add implementations of TRY, TRYEXIT, and THROW to PASM VM.
 - Implement the finally clause.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.
