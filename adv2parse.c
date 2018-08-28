@@ -241,7 +241,7 @@ static void ParseVar(ParseContext *c)
 /* ParseObject - parse the 'object' statement */
 static void ParseObject(ParseContext *c, char *className)
 {
-    VMVALUE class;
+    VMVALUE class, object;
     char name[MAXTOKEN];
     ParseTreeNode *node;
     ObjectHdr *objectHdr;
@@ -255,11 +255,13 @@ static void ParseObject(ParseContext *c, char *className)
     /* allocate space for an object header and initialize */
     if (c->dataFree + sizeof(ObjectHdr) > c->dataTop)
         ParseError(c, "insufficient data space");
-    c->currentObjectSymbol = AddGlobal(c, name, SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
+    object = (VMVALUE)(c->dataFree - c->dataBuf);
+    c->currentObjectSymbol = AddGlobal(c, name, SC_OBJECT, object);
     objectHdr = (ObjectHdr *)c->dataFree;
     c->dataFree += sizeof(ObjectHdr);
     objectHdr->nProperties = 0;
     property = (Property *)(objectHdr + 1);
+    AddObject(c, object);
         
     /* copy non-shared properties from the class object */
     if (className) {

@@ -167,6 +167,13 @@ struct String {
     int offset;
 };
 
+/* object list structure */
+typedef struct ObjectListEntry ObjectListEntry;
+struct ObjectListEntry {
+    ObjectListEntry *next;
+    VMVALUE object;
+};
+
 typedef struct IncludedFile IncludedFile;
 typedef struct ParseFile ParseFile;
 
@@ -204,6 +211,10 @@ typedef struct {
     int inComment;                                  /* scan - inside of a slash/star comment */
     SymbolTable globals;                            /* parse - global symbol table */
     String *strings;                                /* parse - string constants */
+    ObjectListEntry *objects;                       /* parse - list of objects for parent/sibling/child linking */
+    VMVALUE parentProperty;                         /* parse - parent property tag */
+    VMVALUE siblingProperty;                        /* parse - sibling property tag */
+    VMVALUE childProperty;                          /* parse - child property tag */
     Symbol *currentObjectSymbol;                    /* parse - current object being parsed */
     ParseTreeNode *currentFunction;                 /* parse - current function being parsed */
     LocalSymbol *trySymbols;                        /* parse - stack of try catch symbols */
@@ -406,6 +417,7 @@ struct ParseTreeNode {
 /* adv2com.c */
 int FindObject(ParseContext *c, const char *name);
 VMVALUE AddProperty(ParseContext *c, const char *name);
+void AddObject(ParseContext *c, VMVALUE object);
 void InitSymbolTable(ParseContext *c);
 Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, VMVALUE value);
 int AddSymbolRef(ParseContext *c, Symbol *symbol, FixupType fixupType, VMVALUE offset);

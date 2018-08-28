@@ -13,6 +13,7 @@
 #include "adv2vm.h"
 
 static void Usage(void);
+static void ConnectAll(ParseContext *c);
 static void WriteImage(ParseContext *c, char *name);
 static void PrintStrings(ParseContext *c);
 
@@ -28,6 +29,9 @@ int main(int argc, char *argv[])
     memset(c, 0, sizeof(ParseContext));
     InitSymbolTable(c);
     InitScan(c);
+    c->parentProperty = AddProperty(c, "parent");
+    c->siblingProperty = AddProperty(c, "sibling");
+    c->childProperty = AddProperty(c, "child");
     
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
@@ -86,7 +90,11 @@ int main(int argc, char *argv[])
         return 1;
     }
     
+    /* compile the program */
     ParseDeclarations(c);
+    
+    /* link all child objects with their parents */
+    ConnectAll(c);
     
     if (c->debugMode) {
         PrintSymbols(c);
@@ -219,6 +227,64 @@ VMVALUE AddProperty(ParseContext *c, const char *name)
     /* add the symbol */
     sym = AddSymbol(c, name, SC_CONSTANT, ++c->propertyCount);
     return sym->v.value;
+}
+
+/* AddObject - add an object to the list for parent/sibling/child linking */
+void AddObject(ParseContext *c, VMVALUE object)
+{
+    ObjectListEntry *entry = (ObjectListEntry *)LocalAlloc(c, sizeof(ObjectListEntry));
+    entry->next = c->objects;
+    entry->object = object;
+    c->objects = entry;
+}
+
+/* getp - get the value of an object property */
+static int getp(ParseContext *c, VMVALUE object, VMVALUE tag, VMVALUE *pValue)
+{
+    ObjectHdr *objectHdr = (ObjectHdr *)(c->dataBuf + object);
+    Property *property = (Property *)(objectHdr + 1);
+    int cnt = objectHdr->nProperties;
+    while (--cnt >= 0) {
+        if ((property->tag & ~P_SHARED) == tag) {
+            *pValue = property->value;
+            return VMTRUE;
+        }
+        ++property;
+    }
+    return VMFALSE;
+}
+
+/* setp - set the value of an object property */
+static int setp(ParseContext *c, VMVALUE object, VMVALUE tag, VMVALUE value)
+{
+    ObjectHdr *objectHdr = (ObjectHdr *)(c->dataBuf + object);
+    Property *property = (Property *)(objectHdr + 1);
+    int cnt = objectHdr->nProperties;
+    while (--cnt >= 0) {
+        if ((property->tag & ~P_SHARED) == tag) {
+            property->value = value;
+            return VMTRUE;
+        }
+        ++property;
+    }
+    return VMFALSE;
+}
+
+/* ConnectAll - link together all children of each parent object */
+static void ConnectAll(ParseContext *c)
+{
+    ObjectListEntry *entry = c->objects;
+    while (entry) {
+        VMVALUE parent, child;
+        printf("Linking %d\n", entry->object);
+        if (getp(c, entry->object, c->parentProperty, &parent) && parent) {
+            if (getp(c, parent, c->childProperty, &child)) {
+                setp(c, entry->object, c->siblingProperty, child);
+                setp(c, parent, c->childProperty, entry->object);
+            }
+        }
+        entry = entry->next;
+    }
 }
 
 /* InitSymbolTable - initialize a symbol table */
