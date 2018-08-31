@@ -4,25 +4,21 @@ include "game.adi";
 
 actor northActor {
 name:	"North";
-index:	0;
 loc:	livingroom;
 }
 
 actor westActor {
 name:	"West";
-index:	1;
 loc:	closet;
 }
 
 actor southActor {
 name:	"South";
-index:	2;
 loc:	pantry;
 }
 
 actor eastActor {
 name:	"East";
-index:	3;
 loc:	kitchen;
 }
 
