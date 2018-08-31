@@ -29,6 +29,7 @@ typedef struct {
     VMVALUE *sp;
     VMVALUE tos;
     VMVALUE *efp;
+    int device;
 } Interpreter;
 
 /* stack manipulation macros */
@@ -89,6 +90,9 @@ int Execute(ImageHdr *image, int debug)
     i->pc = i->codeBase + image->mainFunction;
     i->sp = i->fp = i->stackTop;
     i->efp = NULL;
+    
+    /* set the default i/o device */
+    i->device = -1;
     
     /* put the address of a HALT on the top of the stack */
     /* codeBase[0] is zero to act as the second byte of a fake CALL instruction */
@@ -246,7 +250,7 @@ int Execute(ImageHdr *image, int debug)
             break;
         case OP_INDEX:
             tmp = Pop(i);
-            i->tos = (VMVALUE)(i->dataBase + tmp + i->tos * sizeof (VMVALUE));
+            i->tos = (VMVALUE)(tmp + i->tos * sizeof (VMVALUE));
             break;
         case OP_CALL:
             ++i->pc; // skip over the argument count
@@ -407,6 +411,10 @@ static void DoTrap(Interpreter *i, int op)
         putchar('\n');
         break;
     case TRAP_PrintFlush:
+        break;
+    case TRAP_SetDevice:
+        i->device = i->tos;
+        i->tos = Pop(i);
         break;
     default:
         Abort(i, "undefined trap %d", op);

@@ -178,6 +178,7 @@ Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, 
             nextFixup = fixup->next;
             switch (fixup->type) {
             case FT_DATA:
+                printf("patching %08x with %d\n", fixup->offset, value);
                 *(VMVALUE *)&c->dataBuf[fixup->offset] = value;
                 break;
             case FT_CODE:
@@ -276,7 +277,6 @@ static void ConnectAll(ParseContext *c)
     ObjectListEntry *entry = c->objects;
     while (entry) {
         VMVALUE parent, child;
-        printf("Linking %d\n", entry->object);
         if (getp(c, entry->object, c->parentProperty, &parent) && parent) {
             if (getp(c, parent, c->childProperty, &child)) {
                 setp(c, entry->object, c->siblingProperty, child);

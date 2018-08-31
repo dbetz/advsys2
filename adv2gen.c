@@ -513,8 +513,10 @@ static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL
 /* code_arrayref - code an array reference */
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
+    PVAL pv2;
+    
     /* code the array reference */
-    code_rvalue(c, expr->u.arrayRef.array);
+    code_lvalue(c, expr->u.arrayRef.array, &pv2);
 
     /* code the index */
     code_rvalue(c, expr->u.arrayRef.index);

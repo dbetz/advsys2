@@ -18,6 +18,12 @@ gamed:
 	openspin advsys2_step.spin
 	proploader -s -t advsys2_step.binary
 
+wordfire:
+	cd ..;./adv2com game.adv
+	mv ../game.dat advsys2.dat
+	openspin wordfire.spin
+	proploader -s wordfire.binary
+
 %.binary:	%.spin vm_runtime.spin advsys2_vm.spin advsys2.dat
 	openspin $<
 
