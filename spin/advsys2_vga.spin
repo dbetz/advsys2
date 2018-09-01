@@ -1,6 +1,7 @@
 ''
-''        Author: Marko Lukat
-'' Last modified: 2017/12/05
+''        Author: David Betz
+''        Based on code by: Marko Lukat and Jim Goodpaster
+'' Last modified: 2018/09/01
 ''       Version: 0.1
 ''
 CON
