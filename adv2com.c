@@ -178,7 +178,6 @@ Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, 
             nextFixup = fixup->next;
             switch (fixup->type) {
             case FT_DATA:
-                printf("patching %08x with %d\n", fixup->offset, value);
                 *(VMVALUE *)&c->dataBuf[fixup->offset] = value;
                 break;
             case FT_CODE:
