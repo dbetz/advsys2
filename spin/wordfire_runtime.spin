@@ -1,5 +1,5 @@
 OBJ
-  vga[4] : "vga"                      'VGA interface to VGA driver
+  vga[4] : "advsys2_vga"              'VGA interface to VGA driver
   kbd    : "QuadKeyboard"             'Quad keyboard driver (JRG)
   vm     : "advsys2_vm"
 
