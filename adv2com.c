@@ -371,9 +371,9 @@ void PrintSymbols(ParseContext *c)
     printf("Globals\n");
     for (sym = c->globals.head; sym != NULL; sym = sym->next)
         if (sym->valueDefined)
-            printf("  %s\t%s\t%d\n", sym->name, storageClassNames[sym->storageClass], sym->v.value);
+            printf("  %20s %s %d\n", sym->name, storageClassNames[sym->storageClass], sym->v.value);
         else
-            printf("  %s\t%s\t(undefined)\n", sym->name, storageClassNames[sym->storageClass]);
+            printf("  %20s %s (undefined)\n", sym->name, storageClassNames[sym->storageClass]);
 }
 
 /* AddString - add a string to the string table */

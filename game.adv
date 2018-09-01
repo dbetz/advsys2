@@ -1,5 +1,3 @@
-var initialLocation = livingroom;
-
 include "game.adi";
 
 actor northActor {

@@ -32,28 +32,27 @@ def disconnect(obj)
     }
 }
 
-/*
-; Print the contents of an object (used by "look")
-(define (print-contents obj prop &aux desc)
-  (setq obj (getp obj child))
-  (while obj
-    (if (setq desc (getp obj prop))
-      (progn
-        (print " ")
-        (print desc)))
-    (setq obj (getp obj sibling))))
+def printContents(obj, prop)
+{
+    var desc;
+    obj = obj.child;
+    while (obj) {
+        if ((desc = obj.prop) != nil)
+            print " ", #desc $;
+        obj = obj.sibling;
+    }
+}
 
-; List the contents of an object (used for "inventory")
-(define (list-contents obj prop &aux desc)
-  (setq obj (getp obj child))
-  (while obj
-    (if (setq desc (getp obj prop))
-      (progn
-        (print "\t")
-        (print desc)
-        (terpri)))
-    (setq obj (getp obj sibling))))
-*/
+def listContents(obj, prop)
+{
+    var desc;
+    obj = obj.child;
+    while (obj) {
+        if ((desc = obj.prop) != nil)
+            print "\t", #desc;
+        obj = obj.sibling;
+    }
+}
 
 def getp(obj, prop)
 {
