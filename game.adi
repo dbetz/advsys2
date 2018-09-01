@@ -7,6 +7,54 @@ object actor {
 property north, south, east, west;
 property loc, description;
 
+def connect(p, c)
+{
+  c.parent = p;
+  c.sibling = p.child;
+  p.child = c;
+}
+
+def disconnect(obj)
+{
+    var this = obj.parent.child;
+    var prev = nil;
+    while (this) {
+        if (this == obj) {
+            if (prev)
+                prev.sibling = this.sibling;
+            else
+                this.parent.child = this.sibling;
+            this.parent = nil;
+            break;
+        }
+        prev = this;
+        this = this.sibling;
+    }
+}
+
+/*
+; Print the contents of an object (used by "look")
+(define (print-contents obj prop &aux desc)
+  (setq obj (getp obj child))
+  (while obj
+    (if (setq desc (getp obj prop))
+      (progn
+        (print " ")
+        (print desc)))
+    (setq obj (getp obj sibling))))
+
+; List the contents of an object (used for "inventory")
+(define (list-contents obj prop &aux desc)
+  (setq obj (getp obj child))
+  (while obj
+    (if (setq desc (getp obj prop))
+      (progn
+        (print "\t")
+        (print desc)
+        (terpri)))
+    (setq obj (getp obj sibling))))
+*/
+
 def getp(obj, prop)
 {
     var value;
@@ -23,7 +71,7 @@ def getc()
 {
     asm {
         TRAP 0
-	    RETURN
+            RETURN
     }
 }
 

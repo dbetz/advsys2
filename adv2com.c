@@ -23,12 +23,14 @@ int main(int argc, char *argv[])
     ParseContext *c = &context;
     char outputFile[100], *p;
     char *inputFile = NULL;
+    int showSymbols = VMFALSE;
     int i;
     
     /* initialize the parse context */
     memset(c, 0, sizeof(ParseContext));
     InitSymbolTable(c);
     InitScan(c);
+    AddGlobal(c, "nil", SC_CONSTANT, 0);
     c->parentProperty = AddProperty(c, "parent");
     c->siblingProperty = AddProperty(c, "sibling");
     c->childProperty = AddProperty(c, "child");
@@ -41,6 +43,9 @@ int main(int argc, char *argv[])
             switch(argv[i][1]) {
             case 'd':   // enable debug mode
                 c->debugMode = VMTRUE;
+                break;
+            case 's':   // show the global symbol table
+                showSymbols = VMTRUE;
                 break;
             default:
                 Usage();
@@ -96,8 +101,10 @@ int main(int argc, char *argv[])
     /* link all child objects with their parents */
     ConnectAll(c);
     
-    if (c->debugMode) {
+    if (showSymbols || c->debugMode) {
         PrintSymbols(c);
+    }
+    if (c->debugMode) {
         PrintStrings(c);
     }
     
@@ -108,7 +115,7 @@ int main(int argc, char *argv[])
   
 static void Usage(void)
 {
-    printf("usage: adv2com [ -d ] <file>\n");
+    printf("usage: adv2com [ -d ] [ -s ] <file>\n");
     exit(1);
 }
 
@@ -359,13 +366,14 @@ Symbol *FindSymbol(ParseContext *c, const char *name)
 /* PrintSymbols - print a symbol table */
 void PrintSymbols(ParseContext *c)
 {
+    char *storageClassNames[] = { "?", "C", "V", "O", "F" };
     Symbol *sym;
     printf("Globals\n");
     for (sym = c->globals.head; sym != NULL; sym = sym->next)
         if (sym->valueDefined)
-            printf("  %s\t%d\t%d\n", sym->name, sym->storageClass, sym->v.value);
+            printf("  %s\t%s\t%d\n", sym->name, storageClassNames[sym->storageClass], sym->v.value);
         else
-            printf("  %s\t%d\t(undefined)\n", sym->name, sym->storageClass);
+            printf("  %s\t%s\t(undefined)\n", sym->name, storageClassNames[sym->storageClass]);
 }
 
 /* AddString - add a string to the string table */
