@@ -689,6 +689,20 @@ _OP_TRYEXIT            ' exit a try block
         mov     efp,r1
         jmp     #_next
 
+{
+_OP_NATIVE
+        call    #imm32
+        mov     :inst, r1
+        test    save_zc, #2 wz      ' restore the z flag
+        shr     save_zc, #1 wc, nr  ' restore the c flag
+:inst   nop
+        muxnz   save_zc, #2         ' save the z flag
+        muxc    save_zc, #1         ' save the c flag
+        jmp     #_next
+
+save_zc long    0
+}
+
 ' input:
 '    r1 is object address
 '    r2 is the property tag
