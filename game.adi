@@ -1,58 +1,19 @@
 object location {
+_child:     nil;
 }
 
 object actor {
+_parent:    nil;
+_sibling:   nil;
+}
+
+object thing {
+_parent:    nil;
+_sibling:   nil;
 }
 
 property north, south, east, west;
-property loc, description;
-
-def connect(p, c)
-{
-  c.parent = p;
-  c.sibling = p.child;
-  p.child = c;
-}
-
-def disconnect(obj)
-{
-    var this = obj.parent.child;
-    var prev = nil;
-    while (this) {
-        if (this == obj) {
-            if (prev)
-                prev.sibling = this.sibling;
-            else
-                this.parent.child = this.sibling;
-            this.parent = nil;
-            break;
-        }
-        prev = this;
-        this = this.sibling;
-    }
-}
-
-def printContents(obj, prop)
-{
-    var desc;
-    obj = obj.child;
-    while (obj) {
-        if ((desc = obj.prop) != nil)
-            print " ", #desc $;
-        obj = obj.sibling;
-    }
-}
-
-def listContents(obj, prop)
-{
-    var desc;
-    obj = obj.child;
-    while (obj) {
-        if ((desc = obj.prop) != nil)
-            print "\t", #desc;
-        obj = obj.sibling;
-    }
-}
+property name, description;
 
 def getp(obj, prop)
 {
@@ -66,11 +27,89 @@ def getp(obj, prop)
     return value;
 }
 
+def connect(c, p)
+{
+  c._parent = p;
+  c._sibling = p._child;
+  p._child = c;
+}
+
+def disconnect(obj)
+{
+    var this = obj._parent._child;
+    var prev = nil;
+    while (this) {
+        if (this == obj) {
+            if (prev)
+                prev._sibling = this._sibling;
+            else
+                obj._parent._child = this._sibling;
+            obj._parent = nil;
+            break;
+        }
+        prev = this;
+        this = this._sibling;
+    }
+}
+
+def printContents(obj, prop)
+{
+    var desc;
+    obj = obj._child;
+    while (obj) {
+        if ((desc = obj.(prop)) != nil) {
+            print " " $;
+            print #desc $;
+        }
+        obj = obj._sibling;
+    }
+}
+
+def listContents(actr, prop)
+{
+    var loc = actr._loc;
+    var child = loc._child;
+    var first = true;
+    var desc;
+    while (child) {
+        if (child != actr && (desc = child.(prop)) != nil) {
+            if (first) {
+                print "You see:";
+                first = false;
+            }
+            print "  " $;
+            print #desc;
+        }
+        child = child._sibling;
+    }
+}
+
+def look(actr)
+{
+    var loc = actr._loc;
+    print #loc.description;
+    listContents(actr, name);
+}
+
+def move(obj, dir)
+{
+    var oldloc = obj._loc;
+    var newloc = getp(oldloc, dir);
+    if (newloc) {
+        disconnect(obj);
+        connect(obj, newloc);
+        look(obj);
+    }
+    else {
+        print "You can't go that way!";
+    }
+}
+
 def getc()
 {
     asm {
         TRAP 0
-            RETURN
+        RETURN
     }
 }
 
@@ -87,42 +126,31 @@ var actors[] = { northActor, westActor, southActor, eastActor };
 
 def main()
 {
-    var curloc, newloc, ch, s;
+    var actr, curloc, newloc, ch, s=0;
     
-    for (s = 0; s < 4; ++s) {
-        screen(s);
-        print #actors[s].loc.description;
-    }
+//    for (s = 0; s < 4; ++s) {
+//        screen(s);
+        look(actors[s]);
+//    }
     
     while (1) {
-        for (s = 0; s < 4; ++s) {
-            screen(s);
-            curloc = actors[s].loc;
+//        for (s = 0; s < 4; ++s) {
+//            screen(s);
+            actr = actors[s];
             if ((ch = getc()) != 0 && ch != '\n') {
                 if (ch == 'n')
-                    newloc = getp(curloc, north);
+                    move(actr, north);
                 else if (ch == 's')
-                    newloc = getp(curloc, south);
+                    move(actr, south);
                 else if (ch == 'e')
-                    newloc = getp(curloc, east);
+                    move(actr, east);
                 else if (ch == 'w')
-                    newloc = getp(curloc, west);
-                else if (ch == 'l') {
-                    print #curloc.description;
-                    newloc = curloc;
-                }
+                    move(actr, west);
+                else if (ch == 'l')
+                    look(actr);
                 else
-                    newloc = -1;
-            
-                if (newloc == -1)
                     print "Huh?";
-                else if (newloc == 0)
-                    print "You can't go that way.";
-                else if (newloc != curloc) {
-                    actors[s].loc = newloc;
-                    print #newloc.description;
-                }
             }
-        }
+//        }
     }
 }

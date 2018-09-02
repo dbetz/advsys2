@@ -1,23 +1,37 @@
 include "game.adi";
 
 actor northActor {
-name:	"North";
-loc:	livingroom;
+name:   "Mr. North";
+index:  0;
+_loc:   livingroom;
 }
 
 actor westActor {
-name:	"West";
-loc:	closet;
+name:   "Mrs. West";
+index:  1;
+_loc:   closet;
 }
 
 actor southActor {
-name:	"South";
-loc:	pantry;
+name:   "Ms. South";
+index:  2;
+_loc:   pantry;
 }
 
 actor eastActor {
-name:	"East";
-loc:	kitchen;
+name:   "Dr. East";
+index:  3;
+_loc:   kitchen;
+}
+
+thing cat {
+name:   "a black cat";
+_loc:   pantry;
+}
+
+thing dragon {
+name:   "a fierce dragon";
+_loc:   closet;
 }
 
 location storage_room {

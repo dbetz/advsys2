@@ -31,9 +31,18 @@ int main(int argc, char *argv[])
     InitSymbolTable(c);
     InitScan(c);
     AddGlobal(c, "nil", SC_CONSTANT, 0);
-    c->parentProperty = AddProperty(c, "parent");
-    c->siblingProperty = AddProperty(c, "sibling");
-    c->childProperty = AddProperty(c, "child");
+    
+    /* add the containment properties */
+    c->parentProperty = AddProperty(c, "_parent");
+    c->siblingProperty = AddProperty(c, "_sibling");
+    c->childProperty = AddProperty(c, "_child");
+    
+    /* make "loc" a synonym for "parent" */
+    AddGlobal(c, "_loc", SC_CONSTANT, c->parentProperty);
+    
+    /* add the boolean values */
+    AddGlobal(c, "true", SC_CONSTANT, 1);
+    AddGlobal(c, "false", SC_CONSTANT, 0);
     
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
