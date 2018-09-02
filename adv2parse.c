@@ -62,6 +62,7 @@ static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object);
 static ParseTreeNode *MakeUnaryOpNode(ParseContext *c, int op, ParseTreeNode *expr);
 static ParseTreeNode *MakeBinaryOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
 static ParseTreeNode *MakeAssignmentOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
+static ParseTreeNode *MakeIntegerLitNode(ParseContext *c, VMVALUE value);
 static ParseTreeNode *NewParseTreeNode(ParseContext *c, int type);
 static void InitLocalSymbolTable(LocalSymbolTable *table);
 static LocalSymbol *AddLocalSymbol(ParseContext *c, LocalSymbolTable *table, const char *name, int offset);
@@ -1383,10 +1384,8 @@ static ParseTreeNode *ParseSelector(ParseContext *c)
 {
     ParseTreeNode *node;
     int tkn;
-    if ((tkn = GetToken(c)) == T_IDENTIFIER) {
-        node = NewParseTreeNode(c, NodeTypeIntegerLit);
-        node->u.integerLit.value = AddProperty(c, c->token);
-    }
+    if ((tkn = GetToken(c)) == T_IDENTIFIER)
+        node = MakeIntegerLitNode(c, AddProperty(c, c->token));
     else if (tkn == '(') {
         SaveToken(c, tkn);
         node = ParseExpr(c);
@@ -1444,25 +1443,28 @@ static ParseTreeNode *ParseSend(ParseContext *c)
 /* ParsePropertyRef - parse a property reference */
 static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object)
 {
-    ParseTreeNode *node = NewParseTreeNode(c, NodeTypePropertyRef);
-    ParseTreeNode *property;
+    ParseTreeNode *node;
     int tkn;
     
-    if ((tkn = GetToken(c)) == T_IDENTIFIER) {
-        property = NewParseTreeNode(c, NodeTypeIntegerLit);
-        property->u.integerLit.value = AddProperty(c, c->token);
+    if ((tkn = GetToken(c)) == T_CLASS) {
+        node = NewParseTreeNode(c, NodeTypeClassRef);
+        node->u.classRef.object = object;
+    }
+    else if (tkn == T_IDENTIFIER) {
+        node = NewParseTreeNode(c, NodeTypePropertyRef);
+        node->u.propertyRef.object = object;
+        node->u.propertyRef.property = MakeIntegerLitNode(c, AddProperty(c, c->token));
     }
     else if (tkn == '(') {
-        SaveToken(c, tkn);
-        property = ParseSimplePrimary(c);
+        node = NewParseTreeNode(c, NodeTypePropertyRef);
+        node->u.propertyRef.object = object;
+        node->u.propertyRef.property = ParseExpr(c);
+        FRequire(c, ')');
     }
     else {
-        ParseError(c, "expecting a property name or parenthesized expression");
-        property = NULL; // never reached
+        ParseError(c, "expecting 'class', a property name, or a parenthesized expression");
+        node = NULL; // never reached
     }
-    
-    node->u.propertyRef.object = object;
-    node->u.propertyRef.property = property;
     
     return node;
 }
@@ -1480,8 +1482,7 @@ static ParseTreeNode *ParseSimplePrimary(ParseContext *c)
         node = ParseSend(c);
         break;
     case T_NUMBER:
-        node = NewParseTreeNode(c, NodeTypeIntegerLit);
-        node->u.integerLit.value = c->value;
+        node = MakeIntegerLitNode(c, c->value);
         break;
     case T_STRING:
         node = NewParseTreeNode(c, NodeTypeStringLit);
@@ -1574,6 +1575,14 @@ static ParseTreeNode *MakeAssignmentOpNode(ParseContext *c, int op, ParseTreeNod
     node->u.binaryOp.op = op;
     node->u.binaryOp.left = left;
     node->u.binaryOp.right = right;
+    return node;
+}
+
+/* MakeIntegerLitNode - allocate an integer literal parse tree node */
+static ParseTreeNode *MakeIntegerLitNode(ParseContext *c, VMVALUE value)
+{
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeIntegerLit);
+    node->u.integerLit.value = value;
     return node;
 }
 

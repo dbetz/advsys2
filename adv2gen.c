@@ -27,6 +27,7 @@ static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
+static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_rvalue(ParseContext *c, ParseTreeNode *expr);
@@ -440,6 +441,9 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     case NodeTypeSend:
         code_send(c, expr, pv);
         break;
+    case NodeTypeClassRef:
+        code_classref(c, expr, pv);
+        break;
     case NodeTypePropertyRef:
         code_propertyref(c, expr, pv);
         break;
@@ -579,6 +583,14 @@ static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     putcbyte(c, expr->u.send.argc + 2);
 
     /* we've got an rvalue now */
+    *pv = VT_RVALUE;
+}
+
+/* code_classref - code a class reference */
+static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
+{
+    code_rvalue(c, expr->u.propertyRef.object);
+    putcbyte(c, OP_CLASS);
     *pv = VT_RVALUE;
 }
 

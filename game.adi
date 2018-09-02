@@ -72,7 +72,7 @@ def listContents(actr, prop)
     var first = true;
     var desc;
     while (child) {
-        if (child != actr && (desc = child.(prop)) != nil) {
+        if (child.class != actor && (desc = child.(prop)) != nil) {
             if (first) {
                 print "You see:";
                 first = false;
@@ -91,14 +91,28 @@ def look(actr)
     listContents(actr, name);
 }
 
-def move(obj, dir)
+def announce(actr)
 {
-    var oldloc = obj._loc;
+    var loc = actr._loc;
+    var child = loc._child;
+    while (child) {
+        if (child.class == actor && child != actr) {
+            print #child.name$;
+            print " is here.";
+        }
+        child = child._sibling;
+    }
+}
+
+def move(actr, dir)
+{
+    var oldloc = actr._loc;
     var newloc = getp(oldloc, dir);
     if (newloc) {
-        disconnect(obj);
-        connect(obj, newloc);
-        look(obj);
+        disconnect(actr);
+        connect(actr, newloc);
+        look(actr);
+        announce(actr);
     }
     else {
         print "You can't go that way!";
@@ -135,8 +149,8 @@ def main()
     
     while (1) {
 //        for (s = 0; s < 4; ++s) {
-//            screen(s);
             actr = actors[s];
+            screen(s);
             if ((ch = getc()) != 0 && ch != '\n') {
                 if (ch == 'n')
                     move(actr, north);

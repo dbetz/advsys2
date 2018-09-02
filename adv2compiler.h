@@ -42,6 +42,7 @@ enum {
     T_BREAK,
     T_RETURN,
     T_OBJECT,
+    T_CLASS,
     T_PROPERTY,
     T_METHOD,
     T_SHARED,
@@ -278,6 +279,7 @@ enum {
     NodeTypeArrayRef,
     NodeTypeFunctionCall,
     NodeTypeSend,
+    NodeTypeClassRef,
     NodeTypePropertyRef,
     NodeTypeDisjunction,
     NodeTypeConjunction
@@ -404,6 +406,9 @@ struct ParseTreeNode {
             NodeListEntry *args;
             int argc;
         } send;
+        struct {
+            ParseTreeNode *object;
+        } classRef;
         struct {
             ParseTreeNode *object;
             ParseTreeNode *property;

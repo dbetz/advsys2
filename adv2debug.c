@@ -197,6 +197,11 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         PrintNode(c, node->u.send.selector, indent + 4);
         PrintNodeList(c, node->u.send.args, indent + 2);
         break;
+    case NodeTypeClassRef:
+        printf("ClassRef\n");
+        printf("%*sobject\n", indent + 2, "");
+        PrintNode(c, node->u.classRef.object, indent + 4);
+        break;
     case NodeTypePropertyRef:
         printf("PropertyRef\n");
         printf("%*sobject\n", indent + 2, "");

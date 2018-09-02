@@ -31,6 +31,7 @@ static struct {
 {   "break",    T_BREAK     },
 {   "return",   T_RETURN    },
 {   "object",   T_OBJECT    },
+{   "class",    T_CLASS     },
 {   "property", T_PROPERTY  },
 {   "method",   T_METHOD    },
 {   "shared",   T_SHARED    },
