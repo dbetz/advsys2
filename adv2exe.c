@@ -404,14 +404,6 @@ static void DoTrap(Interpreter *i, int op)
         printf("%d", i->tos);
         i->tos = *i->sp++;
         break;
-    case TRAP_PrintTab:
-        putchar('\t');
-        break;
-    case TRAP_PrintNL:
-        putchar('\n');
-        break;
-    case TRAP_PrintFlush:
-        break;
     case TRAP_SetDevice:
         i->device = i->tos;
         i->tos = Pop(i);

@@ -58,8 +58,7 @@ def printContents(obj, prop)
     obj = obj._child;
     while (obj) {
         if ((desc = obj.(prop)) != nil) {
-            print " " $;
-            print #desc $;
+            print " ", #desc;
         }
         obj = obj._sibling;
     }
@@ -74,11 +73,10 @@ def listContents(actr, prop)
     while (child) {
         if (child.class != actor && (desc = child.(prop)) != nil) {
             if (first) {
-                print "You see:";
+                print "You see:\n";
                 first = false;
             }
-            print "  " $;
-            print #desc;
+            print "  ", #desc, "\n";
         }
         child = child._sibling;
     }
@@ -87,7 +85,7 @@ def listContents(actr, prop)
 def look(actr)
 {
     var loc = actr._loc;
-    print #loc.description;
+    print #loc.description, "\n";
     listContents(actr, name);
 }
 
@@ -96,10 +94,8 @@ def announce(actr)
     var loc = actr._loc;
     var child = loc._child;
     while (child) {
-        if (child.class == actor && child != actr) {
-            print #child.name$;
-            print " is here.";
-        }
+        if (child.class == actor && child != actr)
+            print #child.name, " is here.\n";
         child = child._sibling;
     }
 }
@@ -115,7 +111,7 @@ def move(actr, dir)
         announce(actr);
     }
     else {
-        print "You can't go that way!";
+        print "You can't go that way!\n";
     }
 }
 
@@ -132,7 +128,7 @@ def screen(n)
     asm {
       LADDR 0
       LOAD
-      TRAP 7
+      TRAP 4
     }
 }
 
@@ -163,7 +159,7 @@ def main()
                 else if (ch == 'l')
                     look(actr);
                 else
-                    print "Huh?";
+                    print "Huh?\n";
             }
 //        }
     }

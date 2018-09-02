@@ -740,24 +740,11 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypePrint);
     PrintOp *op, **pNext = &node->u.printStatement.ops;
-    int needNewline = VMTRUE;
     ParseTreeNode *expr;
     int tkn;
 
-    while ((tkn = GetToken(c)) != ';') {
-        switch (tkn) {
-        case ',':
-            needNewline = VMFALSE;
-            op = LocalAlloc(c, sizeof(PrintOp));
-            op->trap = TRAP_PrintTab;
-            op->expr = NULL;
-            op->next = NULL;
-            *pNext = op;
-            pNext = &op->next;
-            break;
-        case '$':
-            needNewline = VMFALSE;
-            break;
+    do {
+        switch (tkn = GetToken(c)) {
         case '#':
             op = LocalAlloc(c, sizeof(PrintOp));
             op->trap = TRAP_PrintStr;
@@ -767,7 +754,6 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
             pNext = &op->next;
             break;
         default:
-            needNewline = VMTRUE;
             SaveToken(c, tkn);
             expr = ParseAssignmentExpr(c);
             switch (expr->nodeType) {
@@ -790,24 +776,8 @@ static ParseTreeNode *ParsePrint(ParseContext *c)
             }
             break;
         }
-    }
-
-    if (needNewline) {
-        op = LocalAlloc(c, sizeof(PrintOp));
-        op->trap = TRAP_PrintNL;
-        op->expr = NULL;
-        op->next = NULL;
-        *pNext = op;
-        pNext = &op->next;
-    }
-    else {
-        op = LocalAlloc(c, sizeof(PrintOp));
-        op->trap = TRAP_PrintFlush;
-        op->expr = NULL;
-        op->next = NULL;
-        *pNext = op;
-        pNext = &op->next;
-    }
+    } while ((tkn = GetToken(c)) == ',');
+    Require(c, tkn, ';');
         
     return node;
 }

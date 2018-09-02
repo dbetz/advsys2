@@ -94,11 +94,6 @@ PRI do_trap(mbox, state) | p, len, ch
     vm#TRAP_PrintInt:
       ser.dec(long[state][vm#STATE_TOS])
       pop_tos(state)
-    vm#TRAP_PrintTab:
-      ser.tx(9)
-    vm#TRAP_PrintNL:
-      ser.crlf
-    vm#TRAP_PrintFlush:
     other:
         ser.str(string("UNKNOWN TRAP:"))
         ser.hex(long[mbox][vm#MBOX_ARG2_FCN], 8)

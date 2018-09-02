@@ -243,14 +243,9 @@ static void PrintPrintOpList(ParseContext *c, PrintOp *op, int indent)
 	        printf("%*sPrintInt\n", indent, "");
             PrintNode(c, op->expr, indent + 4);
 	        break;
-        case TRAP_PrintTab:
-	        printf("%*sPrintTab\n", indent, "");
-	        break;
-        case TRAP_PrintNL:
-	        printf("%*sPrintNL\n", indent, "");
-	        break;
-        case TRAP_PrintFlush:
-	        printf("%*sPrintFlush\n", indent, "");
+        case TRAP_SetDevice:
+	        printf("%*sSetDevice\n", indent, "");
+            PrintNode(c, op->expr, indent + 4);
 	        break;
         }
         op = op->next;

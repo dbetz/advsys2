@@ -52,10 +52,7 @@ TRAP_GetChar      = 0
 TRAP_PutChar      = 1
 TRAP_PrintStr     = 2
 TRAP_PrintInt     = 3
-TRAP_PrintTab     = 4
-TRAP_PrintNL      = 5
-TRAP_PrintFlush   = 6
-TRAP_SetDevice    = 7
+TRAP_SetDevice    = 4
 
 ' virtual machine opcodes
 OP_HALT         = $00    ' halt
