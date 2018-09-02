@@ -15,6 +15,25 @@ _sibling:   nil;
 property north, south, east, west;
 property name, description;
 
+var multiScreen = false;
+
+def getc()
+{
+    asm {
+        TRAP 0
+        RETURN
+    }
+}
+
+def screen(n)
+{
+    asm {
+      LADDR 0
+      LOAD
+      TRAP 4
+    }
+}
+
 def getp(obj, prop)
 {
     var value;
@@ -100,6 +119,18 @@ def announce(actr)
     }
 }
 
+def announceMovement(actr, loc, tail)
+{
+    var child = loc._child;
+    while (child) {
+        if (child.class == actor && child != actr) {
+            screen(child.index);
+            print #actr.name, #tail;
+        }
+        child = child._sibling;
+    }
+}
+
 def move(actr, dir)
 {
     var oldloc = actr._loc;
@@ -109,30 +140,16 @@ def move(actr, dir)
         connect(actr, newloc);
         look(actr);
         announce(actr);
+        if (multiScreen) {
+            announceMovement(actr, oldloc, " left.\n");
+            announceMovement(actr, newloc, " arrived.\n");
+            screen(actr.index);
+        }
     }
     else {
         print "You can't go that way!\n";
     }
 }
-
-def getc()
-{
-    asm {
-        TRAP 0
-        RETURN
-    }
-}
-
-def screen(n)
-{
-    asm {
-      LADDR 0
-      LOAD
-      TRAP 4
-    }
-}
-
-var actors[] = { northActor, westActor, southActor, eastActor };
 
 def initActor(actr)
 {

@@ -30,7 +30,7 @@ game:    adv2int game.dat
 gamed:    adv2int game.dat
 	./adv2int -d game.dat
 
-%.dat:	%.adv adv2com
+%.dat:	%.adv game.adi adv2com
 	./adv2com $<
 	
 $(COMOBJS):	$(COMHDRS)

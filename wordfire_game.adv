@@ -74,9 +74,13 @@ description:    "You are outside.";
 north:          livingroom;
 }
 
+var actors[] = { northActor, westActor, southActor, eastActor };
+
 def main()
 {
     var s;
+    
+    multiScreen = true;
     
     for (s = 0; s < 4; ++s)
         initActor(actors[s]);
