@@ -76,7 +76,14 @@ north:          livingroom;
 
 def main()
 {
-    initActor(northActor);
-    while (1)
-        checkActor(northActor);
+    var s;
+    
+    for (s = 0; s < 4; ++s)
+        initActor(actors[s]);
+    
+    while (1) {
+        for (s = 0; s < 4; ++s)
+            checkActor(actors[s]);
+    }
 }
+

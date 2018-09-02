@@ -24,12 +24,6 @@ adv2vmdebug.h
 
 all:	adv2com adv2int
 
-test:    adv2int test.dat
-	./adv2int test.dat
-
-testd:    adv2int test.dat
-	./adv2int -d test.dat
-
 game:    adv2int game.dat
 	./adv2int game.dat
 

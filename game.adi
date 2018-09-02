@@ -134,33 +134,32 @@ def screen(n)
 
 var actors[] = { northActor, westActor, southActor, eastActor };
 
-def main()
+def initActor(actr)
 {
-    var actr, curloc, newloc, ch, s=0;
+    screen(actr.index);
+    look(actr);
+}
+
+def checkActor(actr)
+{
+    var ch;
     
-//    for (s = 0; s < 4; ++s) {
-//        screen(s);
-        look(actors[s]);
-//    }
+    // switch to the actor's screen
+    screen(actr.index);
     
-    while (1) {
-//        for (s = 0; s < 4; ++s) {
-            actr = actors[s];
-            screen(s);
-            if ((ch = getc()) != 0 && ch != '\n') {
-                if (ch == 'n')
-                    move(actr, north);
-                else if (ch == 's')
-                    move(actr, south);
-                else if (ch == 'e')
-                    move(actr, east);
-                else if (ch == 'w')
-                    move(actr, west);
-                else if (ch == 'l')
-                    look(actr);
-                else
-                    print "Huh?\n";
-            }
-//        }
+    // check for actor input
+    if ((ch = getc()) != 0 && ch != '\n') {
+        if (ch == 'n')
+            move(actr, north);
+        else if (ch == 's')
+            move(actr, south);
+        else if (ch == 'e')
+            move(actr, east);
+        else if (ch == 'w')
+            move(actr, west);
+        else if (ch == 'l')
+            look(actr);
+        else
+            print "Huh?\n";
     }
 }

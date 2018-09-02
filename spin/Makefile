@@ -6,21 +6,21 @@ run:	advsys2_run.binary advsys2.dat
 step:	advsys2_step.binary advsys2.dat
 	proploader -s -t advsys2_step.binary
 
-game:
+game:	../game.adv ../game.adi
 	cd ..;./adv2com game.adv
 	mv ../game.dat advsys2.dat
 	openspin advsys2_run.spin
 	proploader -s -t advsys2_run.binary
 
-gamed:
+gamed:	../game.adv ../game.adi
 	cd ..;./adv2com game.adv
 	mv ../game.dat advsys2.dat
 	openspin advsys2_step.spin
 	proploader -s -t advsys2_step.binary
 
-wordfire:
-	cd ..;./adv2com game.adv
-	mv ../game.dat advsys2.dat
+wordfire:	../wordfire_game.adv ../game.adi
+	cd ..;./adv2com wordfire_game.adv
+	mv ../wordfire_game.dat advsys2.dat
 	openspin wordfire.spin
 	proploader -s wordfire.binary
 
