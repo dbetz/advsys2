@@ -20,7 +20,7 @@ CON
   BW = $37
 
 OBJ
-  driver: "vga.driver"
+  driver: "waitvid.40x15.plte.driver"
 
 VAR
   long  link[driver#res_m]                              ' driver mailbox
@@ -42,7 +42,7 @@ PUB init(config) : c
   x := XSTART
   y := YSTART
 
-  return driver.init(@link{0})                          ' video driver and pixel generator
+  return driver.init(-1, @link{0})                          ' video driver and pixel generator
   
 PUB clear
   bytefill(@indx{0},  BW, bcnt_raw)
