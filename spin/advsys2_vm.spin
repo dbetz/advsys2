@@ -693,14 +693,12 @@ _OP_TRYEXIT            ' exit a try block
 _OP_NATIVE
         call    #imm32
         mov     :inst, r1
-        test    save_zc, #2 wz      ' restore the z flag
-        shr     save_zc, #1 wc, nr  ' restore the c flag
+restore_z_c
+        shr     $, #%01110 wz,wc,nr ' %Z---C
 :inst   nop
-        muxnz   save_zc, #2         ' save the z flag
-        muxc    save_zc, #1         ' save the c flag
+        muxc    restore_z_c, #%00001
+        muxz    restore_z_c, #%10000
         jmp     #_next
-
-save_zc long    0
 }
 
 ' input:
