@@ -20,7 +20,7 @@ CON
   BW = $37
 
 OBJ
-  driver: "waitvid.40x15.plte.driver"
+  driver: "waitvid.40x15.plte.sa.driver"
 
 VAR
   long  link[driver#res_m]                              ' driver mailbox

@@ -21,16 +21,16 @@
 '' 20131025: allow for startup vgrp/vpin configuration
 '' 20171205: added multi screen sync capability
 ''
-OBJ
-  system: "core.con.system"
-
 PUB null
 '' This is not a top level object.
   
 PUB init(ID, mailbox)
+  ifnot (ID >> 3)
+    coginit(ID++, @driver, mailbox)
+  elseifnot ID := cognew(@driver, mailbox) + 1
+    abort
+  return ID
 
-  return system.launch(ID, @driver, mailbox)
-  
 DAT             org     0                       ' video driver
 
 driver          jmpret  $, #setup               '  -4   once
