@@ -104,6 +104,7 @@ fp -> arg 1
 #define OP_TRY          0x2e    /* enter try code */
 #define OP_TRYEXIT      0x2f    /* exit try code */
 #define OP_THROW        0x30    /* throw an exception */
+#define OP_NATIVE       0x31    /* execute a native instruction */
 
 /* VM trap codes */
 enum {

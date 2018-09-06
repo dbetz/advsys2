@@ -15,6 +15,7 @@
 #define FMT_SBYTE       2
 #define FMT_LONG        3
 #define FMT_BR          4
+#define FMT_NATIVE      5
 
 typedef struct {
     int code;

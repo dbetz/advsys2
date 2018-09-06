@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "adv2compiler.h"
 #include "adv2debug.h"
 #include "adv2vm.h"
@@ -681,13 +682,15 @@ static ParseTreeNode *ParseEmpty(ParseContext *c)
     return NewParseTreeNode(c, NodeTypeEmpty);
 }
 
-/* ParseAsm - parse the 'ASM ... END ASM' statement */
+/* ParseAsm - parse the 'ASM {}' statement */
 static ParseTreeNode *ParseAsm(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeAsm);
     uint8_t *start = c->codeFree;
     int length, tkn;
+    uint32_t value;
     OTDEF *def;
+    char *p;
     
     FRequire(c, '{');
     
@@ -713,6 +716,20 @@ static ParseTreeNode *ParseAsm(ParseContext *c)
                     break;
                 case FMT_BR:
                     putcword(c, ParseIntegerLiteralExpr(c));
+                    break;
+                case FMT_NATIVE:
+                    for (p = c->linePtr; *p != '\0' && isspace(*p); ++p)
+                        ;
+                    if (isdigit(*p))
+                        putcword(c, ParseIntegerLiteralExpr(c));
+                    else {
+                        if (!PasmAssemble1(c->linePtr, &value))
+                            ParseError(c, "native assembly failed");
+                        putclong(c, (VMVALUE)value);
+                        for (p = c->linePtr; *p != '\0' && *p != '\n'; ++p)
+                            ;
+                        c->linePtr = p;
+                    }
                     break;
                 default:
                     ParseError(c, "instruction not currently supported");

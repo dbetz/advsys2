@@ -439,6 +439,9 @@ void ParseDeclarations(ParseContext *c);
 void PrintLocalSymbols(LocalSymbolTable *table, char *tag, int indent);
 void StoreInitializer(ParseContext *c, VMVALUE value);
 
+/* adv2pasm.c */
+int PasmAssemble1(char *line, uint32_t *pValue);
+
 /* adv2scan.c */
 void InitScan(ParseContext *c);
 int PushFile(ParseContext *c, const char *name);

@@ -126,7 +126,7 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   pc := long[state][vm#STATE_PC]
   ser.hex(pc - codeBase, 8)
   ser.tx(" ")
-  ser.hex(vm.read_byte(mbox, pc), 2)
+  ser.hex(byte[codeBase][pc], 2)
   ser.tx(" ")
   fp := long[state][vm#STATE_FP]
   ser.hex(fp, 8)

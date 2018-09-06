@@ -163,7 +163,7 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   pc := long[state][vm#STATE_PC]
   vga[0].hex(pc - codeBase, 8)
   vga[0].tx(" ")
-  vga[0].hex(vm.read_byte(mbox, pc), 2)
+  vga[0].hex(byte[codeBase][pc], 2)
   vga[0].tx(" ")
   fp := long[state][vm#STATE_FP]
   vga[0].hex(fp, 8)

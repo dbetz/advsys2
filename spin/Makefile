@@ -6,6 +6,18 @@ run:	advsys2_run.binary advsys2.dat
 step:	advsys2_step.binary advsys2.dat
 	proploader -s -t advsys2_step.binary
 
+test:	../test.adv
+	cd ..;./adv2com test.adv
+	mv ../test.dat advsys2.dat
+	openspin advsys2_run.spin
+	proploader -s -t advsys2_run.binary
+
+testd:	../test.adv
+	cd ..;./adv2com test.adv
+	mv ../test.dat advsys2.dat
+	openspin advsys2_step.spin
+	proploader -s -t advsys2_step.binary
+
 game:	../game.adv ../game.adi
 	cd ..;./adv2com game.adv
 	mv ../game.dat advsys2.dat

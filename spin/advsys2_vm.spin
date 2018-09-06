@@ -32,10 +32,7 @@ STATE_STACK_TOP   = 7
 _STATE_SIZE       = 8
 
 VM_Continue       = 1
-VM_ReadLong       = 2
-VM_WriteLong      = 3
-VM_ReadByte       = 4
-_VM_Last          = 4
+_VM_Last          = 1
 
 STS_Fail          = 0
 STS_Halt          = 1
@@ -104,7 +101,8 @@ OP_CLASS        = $2d    ' get the class of an object
 OP_TRY          = $2e    ' enter a try block
 OP_TRYEXIT      = $2f    ' exit a try block
 OP_THROW        = $30    ' throw an exception
-OP_LAST         = $30
+OP_NATIVE       = $31    ' execute a native instruction
+OP_LAST         = $31
 
 DIV_OP          = 0
 REM_OP          = 1
@@ -130,30 +128,32 @@ PUB poll(mbox)
   repeat while long[mbox][MBOX_CMD] <> 0
   return long[mbox][MBOX_ARG_STS]
 
-PUB read_long(mbox, p_address)
-  long[mbox][MBOX_ARG_STS] := p_address
-  long[mbox][MBOX_CMD] := VM_ReadLong
-  repeat while long[mbox][MBOX_CMD] <> 0
-  return long[mbox][MBOX_ARG2_FCN]
-
-PUB write_long(mbox, p_address, value)
-  long[mbox][MBOX_ARG_STS] := p_address
-  long[mbox][MBOX_ARG2_FCN] := value
-  long[mbox][MBOX_CMD] := VM_WriteLong
-  repeat while long[mbox][MBOX_CMD] <> 0
-
-PUB read_byte(mbox, p_address)
-  long[mbox][MBOX_ARG_STS] := p_address
-  long[mbox][MBOX_CMD] := VM_ReadByte
-  repeat while long[mbox][MBOX_CMD] <> 0
-  return long[mbox][MBOX_ARG2_FCN]
-
 DAT
 
         org 0
 _init
+        jmp     #init2
+        
+' base addresses
+dbase       long    0
+cbase       long    0
+sbase       long    0
+
+' virtual machine registers
+tos         long    0
+sp          long    0
+fp          long    0
+pc          long    0
+efp         long    0
+
+' temporary registers for NATIVE instructions
+t1          long    0
+t2          long    0
+t3          long    0
+t4          long    0
+        
         ' prepare to parse the initialization parameters
-        mov     r1,par
+init2   mov     r1,par
 
         ' get the image address
         rdlong  r2,r1
@@ -229,9 +229,6 @@ err_command
 
 cmd_table                           ' command dispatch table
         jmp     #_VM_Continue
-        jmp     #_VM_ReadLong
-        jmp     #_VM_WriteLong
-        jmp     #_VM_ReadByte
 
 _VM_Continue
         mov     r1,state_ptr
@@ -247,27 +244,6 @@ _VM_Continue
         add     r1,#4
         rdlong  stepping,r1     ' load stepping
         jmp     #_start
-
-_VM_ReadLong
-        rdlong  r1,arg_sts_ptr
-        rdlong  r1,r1
-        wrlong  r1,arg2_fcn_ptr
-        mov     r1,#STS_Success
-        jmp     #end_command
-
-_VM_WriteLong
-        rdlong  r1,arg_sts_ptr
-        rdlong  r2,arg2_fcn_ptr
-        wrlong  r2,r1
-        mov     r1,#STS_Success
-        jmp     #end_command
-
-_VM_ReadByte
-        rdlong  r1,arg_sts_ptr
-        rdbyte  r1,r1
-        wrlong  r1,arg2_fcn_ptr
-        mov     r1,#STS_Success
-        jmp     #end_command
 
 store_state
         mov     r2,state_ptr
@@ -353,6 +329,7 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_TRY                ' enter a try block
         jmp     #_OP_TRYEXIT            ' exit a try block
         jmp     #_OP_THROW              ' throw an exception
+        jmp     #_OP_NATIVE             ' execute a native instruction
 
 _OP_HALT               ' halt
         mov     r1,#STS_Halt
@@ -689,17 +666,15 @@ _OP_TRYEXIT            ' exit a try block
         mov     efp,r1
         jmp     #_next
 
-{
+' thanks to kuroneko for the save/restore code
 _OP_NATIVE
         call    #imm32
         mov     :inst, r1
-restore_z_c
-        shr     $, #%01110 wz,wc,nr ' %Z---C
+:rest   shr     $, #%01110 wz,wc,nr ' %Z---C
 :inst   nop
-        muxc    restore_z_c, #%00001
-        muxz    restore_z_c, #%10000
+        muxc    :rest, #%00001
+        muxz    :rest, #%10000
         jmp     #_next
-}
 
 ' input:
 '    r1 is object address
@@ -862,18 +837,6 @@ fast_div                ' tos = r1 / tos
                         jmp     #_next
 
 ' adapted from Heater's ZOG
-
-' base addresses
-dbase       long    0
-cbase       long    0
-sbase       long    0
-
-' virtual machine registers
-tos         long    0
-sp          long    0
-fp          long    0
-pc          long    0
-efp         long    0
 
 ' virtual machine registers
 stack       long    0

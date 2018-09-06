@@ -1,6 +1,7 @@
 COMOBJS = \
 adv2com.o \
 adv2parse.o \
+adv2pasm.o \
 adv2scan.o \
 adv2gen.o \
 adv2debug.o \

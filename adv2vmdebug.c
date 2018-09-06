@@ -60,6 +60,7 @@ OTDEF OpcodeTable[] = {
 { OP_TRY,       "TRY",      FMT_BR      },
 { OP_TRYEXIT,   "TRYEXIT",  FMT_NONE    },
 { OP_THROW,     "THROW",    FMT_NONE    },
+{ OP_NATIVE,    "NATIVE",   FMT_NATIVE  },
 { 0,            NULL,       0           }
 };
 
@@ -114,6 +115,7 @@ int DecodeInstruction(const uint8_t *base, const uint8_t *lc)
                 n += 1;
                 break;
             case FMT_LONG:
+            case FMT_NATIVE:
                 for (i = 0; i < sizeof(VMVALUE); ++i) {
                     bytes[i] = VMCODEBYTE(lc + i + 1);
                     printf("%02x ", bytes[i]);
