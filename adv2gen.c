@@ -479,7 +479,7 @@ static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     Symbol *symbol = expr->u.symbolRef.symbol;
     switch (symbol->storageClass) {
     case SC_VARIABLE:
-        putcbyte(c, OP_DADDR);
+        putcbyte(c, OP_LIT);
         putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
         *pv = VT_LVALUE;
         break;
@@ -517,10 +517,8 @@ static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL
 /* code_arrayref - code an array reference */
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
-    PVAL pv2;
-    
     /* code the array reference */
-    code_lvalue(c, expr->u.arrayRef.array, &pv2);
+    code_rvalue(c, expr->u.arrayRef.array);
 
     /* code the index */
     code_rvalue(c, expr->u.arrayRef.index);

@@ -128,6 +128,8 @@ PRI do_trap(mbox, state) | p, len, ch
     vm#TRAP_PrintInt:
       vga[device].dec(long[state][vm#STATE_TOS])
       pop_tos(state)
+    vm#TRAP_PrintNL:
+      vga[device].tx($0a)
     vm#TRAP_SetDevice:
       device := long[state][vm#STATE_TOS]
       pop_tos(state)

@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     InitSymbolTable(c);
     InitScan(c);
     AddGlobal(c, "nil", SC_CONSTANT, 0);
+    c->pNextDataBlock = &c->dataBlocks;
     
     /* add the containment properties */
     c->parentProperty = AddProperty(c, "_parent");
@@ -423,7 +424,7 @@ static void PrintStrings(ParseContext *c)
 void *LocalAlloc(ParseContext *c, size_t size)
 {
     void *data = (void *)malloc(size);
-    if (!data) Abort(c, "insufficient memory");
+    if (!data) Abort(c, "insufficient memory - needed %d bytes", size);
     return data;
 }
 

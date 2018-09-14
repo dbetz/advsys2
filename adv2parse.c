@@ -16,7 +16,7 @@
 static void ParseInclude(ParseContext *c);
 static void ParseDef(ParseContext *c);
 static void ParseConstantDef(ParseContext *c, char *name);
-static void  ParseFunctionDef(ParseContext *c, char *name);
+static void ParseFunctionDef(ParseContext *c, char *name);
 static void ParseVar(ParseContext *c);
 static void ParseObject(ParseContext *c, char *name);
 static void ParseProperty(ParseContext *c);
@@ -36,7 +36,7 @@ static ParseTreeNode *ParseThrow(ParseContext *c);
 static ParseTreeNode *ParseExprStatement(ParseContext *c);
 static ParseTreeNode *ParseEmpty(ParseContext *c);
 static ParseTreeNode *ParseAsm(ParseContext *c);
-static ParseTreeNode *ParsePrint(ParseContext *c);
+static ParseTreeNode *ParsePrint(ParseContext *c, int newline);
 static VMVALUE ParseIntegerLiteralExpr(ParseContext *c);
 static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VMVALUE offset);
 static ParseTreeNode *ParseExpr(ParseContext *c);
@@ -188,32 +188,199 @@ static void ParseAndStoreInitializer(ParseContext *c)
     c->dataFree += sizeof(VMVALUE);
 }
 
+/* AddNestedArraySymbolRef - add a symbol reference */
+int AddNestedArraySymbolRef(ParseContext *c, DataBlock *dataBlock, Symbol *symbol, VMVALUE offset)
+{
+    DataFixup *fixup;
+    if (symbol->valueDefined)
+        return symbol->v.value;
+    fixup = (DataFixup *)LocalAlloc(c, sizeof(DataFixup));
+    fixup->symbol = symbol;
+    fixup->offset = offset;
+    fixup->next = dataBlock->fixups;
+    dataBlock->fixups = fixup;
+    return 0;
+}
+
+/* ParseNestedArrayConstantLiteralExpr - parse a constant literal expression (including objects and functions) */
+static VMVALUE ParseNestedArrayConstantLiteralExpr(ParseContext *c, DataBlock *dataBlock, VMVALUE offset)
+{
+    ParseTreeNode *expr = ParseAssignmentExpr(c);
+    VMVALUE value = NIL;
+    switch (expr->nodeType) {
+    case NodeTypeIntegerLit:
+        value = expr->u.integerLit.value;
+        break;
+    case NodeTypeStringLit:
+        value = expr->u.stringLit.string->offset;
+        break;
+    case NodeTypeGlobalSymbolRef:
+        switch (expr->u.symbolRef.symbol->storageClass) {
+        case SC_OBJECT:
+        case SC_FUNCTION:
+            if (expr->u.symbolRef.symbol->valueDefined)
+                value = expr->u.symbolRef.symbol->v.value;
+            else {
+                AddNestedArraySymbolRef(c, dataBlock, expr->u.symbolRef.symbol, offset);
+                value = 0;
+            }
+            break;
+        default:
+            ParseError(c, "expecting a constant expression, object, or function");
+            break;
+        }
+        break;
+    default:
+        ParseError(c, "expecting a constant expression, object, or function");
+        break;
+    }
+    return value;
+}
+
+/* ParseAndStoreNestedArrayInitializer - parse and store a data initializer */
+static void ParseAndStoreNestedArrayInitializer(ParseContext *c, DataBlock *dataBlock)
+{
+    VMVALUE offset = c->dataFree - c->dataBuf;
+    if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
+        ParseError(c, "insufficient data space");
+    *(VMVALUE *)c->dataFree = ParseNestedArrayConstantLiteralExpr(c, dataBlock, offset);
+    c->dataFree += sizeof(VMVALUE);
+}
+
+/* ParseNestedArray - parse a nested array */
+static void ParseNestedArray(ParseContext *c, DataBlock *parent, VMVALUE parentOffset)
+{
+    uint8_t *arrayBase = c->dataFree;
+    DataBlock *dataBlock;
+    VMVALUE size = 0;
+    int tkn;
+    
+    dataBlock = (DataBlock *)LocalAlloc(c, sizeof(DataBlock));
+    memset(dataBlock, 0, sizeof(DataBlock));
+    dataBlock->parent = parent;
+    dataBlock->parentOffset = parentOffset;
+    
+    do {
+        if ((tkn = GetToken(c)) == '[') {
+            VMVALUE offset = c->dataFree - arrayBase;
+            StoreInitializer(c, 0);
+            ParseNestedArray(c, dataBlock, offset);
+        }
+        else {
+            SaveToken(c, tkn);
+            ParseAndStoreNestedArrayInitializer(c, dataBlock);
+        }
+        ++size;
+    } while ((tkn = GetToken(c)) == ',');
+    Require(c, tkn, ']');
+    
+    dataBlock->size = size;
+    dataBlock->data = LocalAlloc(c, c->dataFree - arrayBase);
+    memcpy(dataBlock->data, arrayBase, c->dataFree - arrayBase);
+    
+    *c->pNextDataBlock = dataBlock;
+    c->pNextDataBlock = &dataBlock->next;
+    
+    c->dataFree = arrayBase;
+}
+
+/* PlaceNestedArrays - place nested arrays in data memory */
+static void PlaceNestedArrays(ParseContext *c)
+{
+    DataBlock *block;
+    DataFixup *fixup;
+    
+    /* place each block in data memory */
+    block = c->dataBlocks;
+    while (block) {
+        VMVALUE sizeInBytes = block->size * sizeof(VMVALUE);
+    
+        /* store the array size at array[-1] */
+        StoreInitializer(c, block->size);
+        
+        /* copy the array data */
+        block->offset = c->dataFree - c->dataBuf;
+        if (c->dataFree + sizeInBytes > c->dataTop)
+            ParseError(c, "insufficient data space - needed %d bytes", sizeInBytes);
+        memcpy(c->dataFree, block->data, sizeInBytes);
+        c->dataFree += sizeInBytes;
+        
+        /* store the pointer to the nested array in the parent array */
+        if (block->parent)
+            *(VMVALUE *)(c->dataBuf + block->parent->offset + block->parentOffset) = block->offset;
+        else
+            *(VMVALUE *)(c->dataBuf + block->parentOffset) = block->offset;
+        
+        /* copy the fixups to the symbol fixup lists */
+        fixup = block->fixups;
+        while (fixup) {
+            DataFixup *next = fixup->next;
+            AddSymbolRef(c, fixup->symbol, FT_DATA, block->offset + fixup->offset);
+            free(fixup);
+            fixup = next;
+        }
+        
+        /* move ahead to the next block */
+        block = block->next;
+    }
+    
+    /* free the blocks */
+    block = c->dataBlocks;;
+    while (block) {
+        DataBlock *next = block->next;
+        free(block->data);
+        free(block);
+        block = next;
+    }
+}
+
 /* ParseVar - parse the 'var' statement */
 static void ParseVar(ParseContext *c)
 {
     int tkn;
     do {
         FRequire(c, T_IDENTIFIER);
-        AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
         if ((tkn = GetToken(c)) == '[') {
+            VMVALUE *sizePtr;
+            int declaredSize, remaining;
             VMVALUE value = 0;
-            int size;
-            if ((tkn = GetToken(c)) == ']')
-                size = -1;
+            
+            sizePtr = (VMVALUE *)c->dataFree;
+            StoreInitializer(c, 0);
+            AddGlobal(c, c->token, SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
+            
+            if ((tkn = GetToken(c)) == ']') {
+                declaredSize = -1;
+                remaining = 0;
+            }
             else {
                 SaveToken(c, tkn);
-                size = ParseIntegerLiteralExpr(c);
-                if (size < 0)
+                declaredSize = ParseIntegerLiteralExpr(c);
+                remaining = declaredSize;
+                if (declaredSize < 0)
                     ParseError(c, "expecting a positive array size");
                 FRequire(c, ']');
             }
+            
             if ((tkn = GetToken(c)) == '=') {
                 if ((tkn = GetToken(c)) == '{') {
+                    int initializerCount = 0;
                     do {
-                        if (size != -1 && --size < 0)
+                        if (declaredSize != -1 && --remaining < 0)
                             ParseError(c, "too many initializers");
-                        ParseAndStoreInitializer(c);
+                        if ((tkn = GetToken(c)) == '[') {
+                            VMVALUE offset = c->dataFree - c->dataBuf;
+                            StoreInitializer(c, 0);
+                            ParseNestedArray(c, NULL, offset);
+                        }
+                        else {
+                            SaveToken(c, tkn);
+                            ParseAndStoreInitializer(c);
+                        }
+                        ++initializerCount;
                     } while ((tkn = GetToken(c)) == ',');
+                    if (declaredSize == -1)
+                        declaredSize = initializerCount;
                     Require(c, tkn, '}');
                 }
                 else {
@@ -224,10 +391,16 @@ static void ParseVar(ParseContext *c)
             else {
                 SaveToken(c, tkn);
             }
-            while (--size >= 0)
+            
+            while (--remaining >= 0)
                 StoreInitializer(c, value);
+                
+            PlaceNestedArrays(c);
+            
+            *sizePtr = declaredSize;
         }
         else {
+            AddGlobal(c, c->token, SC_VARIABLE, (VMVALUE)(c->dataFree - c->dataBuf));
             SaveToken(c, tkn);
             if ((tkn = GetToken(c)) == '=')
                 ParseAndStoreInitializer(c);
@@ -334,12 +507,19 @@ static void ParseObject(ParseContext *c, char *className)
         /* handle values */
         else {
             VMVALUE offset = (uint8_t *)&p->value - c->dataBuf;
-            SaveToken(c, tkn);
-            p->value = ParseConstantLiteralExpr(c, FT_DATA, offset);
+            if (tkn == '[') {
+                ParseNestedArray(c, NULL, offset);
+            }
+            else {
+                SaveToken(c, tkn);
+                p->value = ParseConstantLiteralExpr(c, FT_DATA, offset);
+            }
         }
 
         FRequire(c, ';');
     }
+    
+    PlaceNestedArrays(c);
     
     /* move the free pointer past the new object */
     c->dataFree = (uint8_t *)property;
@@ -474,7 +654,8 @@ ParseTreeNode *ParseStatement(ParseContext *c)
         node = ParseAsm(c);
         break;
     case T_PRINT:
-        node = ParsePrint(c);
+    case T_PRINTLN:
+        node = ParsePrint(c, tkn == T_PRINTLN);
         break;
     case '{':
         node = ParseBlock(c);
@@ -753,48 +934,60 @@ static ParseTreeNode *ParseAsm(ParseContext *c)
 }
 
 /* ParsePrint - handle the 'PRINT' statement */
-static ParseTreeNode *ParsePrint(ParseContext *c)
+static ParseTreeNode *ParsePrint(ParseContext *c, int newline)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypePrint);
     PrintOp *op, **pNext = &node->u.printStatement.ops;
     ParseTreeNode *expr;
     int tkn;
 
-    do {
-        switch (tkn = GetToken(c)) {
-        case '#':
-            op = LocalAlloc(c, sizeof(PrintOp));
-            op->trap = TRAP_PrintStr;
-            op->expr = ParseAssignmentExpr(c);
-            op->next = NULL;
-            *pNext = op;
-            pNext = &op->next;
-            break;
-        default:
-            SaveToken(c, tkn);
-            expr = ParseAssignmentExpr(c);
-            switch (expr->nodeType) {
-            case NodeTypeStringLit:
+    if ((tkn = GetToken(c)) != ';') {
+        SaveToken(c, tkn);
+        do {
+            switch (tkn = GetToken(c)) {
+            case '#':
                 op = LocalAlloc(c, sizeof(PrintOp));
                 op->trap = TRAP_PrintStr;
-                op->expr = expr;
+                op->expr = ParseAssignmentExpr(c);
                 op->next = NULL;
                 *pNext = op;
                 pNext = &op->next;
                 break;
             default:
-                op = LocalAlloc(c, sizeof(PrintOp));
-                op->trap = TRAP_PrintInt;
-                op->expr = expr;
-                op->next = NULL;
-                *pNext = op;
-                pNext = &op->next;
+                SaveToken(c, tkn);
+                expr = ParseAssignmentExpr(c);
+                switch (expr->nodeType) {
+                case NodeTypeStringLit:
+                    op = LocalAlloc(c, sizeof(PrintOp));
+                    op->trap = TRAP_PrintStr;
+                    op->expr = expr;
+                    op->next = NULL;
+                    *pNext = op;
+                    pNext = &op->next;
+                    break;
+                default:
+                    op = LocalAlloc(c, sizeof(PrintOp));
+                    op->trap = TRAP_PrintInt;
+                    op->expr = expr;
+                    op->next = NULL;
+                    *pNext = op;
+                    pNext = &op->next;
+                    break;
+                }
                 break;
             }
-            break;
-        }
-    } while ((tkn = GetToken(c)) == ',');
-    Require(c, tkn, ';');
+        } while ((tkn = GetToken(c)) == ',');
+        Require(c, tkn, ';');
+    }
+    
+    if (newline) {
+        op = LocalAlloc(c, sizeof(PrintOp));
+        op->trap = TRAP_PrintNL;
+        op->expr = NULL;
+        op->next = NULL;
+        *pNext = op;
+        pNext = &op->next;
+    }
         
     return node;
 }

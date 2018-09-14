@@ -42,6 +42,7 @@ static struct {
 {   "throw",    T_THROW     },
 {   "asm",      T_ASM       },
 {   "print",    T_PRINT     },
+{   "println",  T_PRINTLN   },
 {   NULL,       0           }
 };
 
@@ -230,10 +231,8 @@ char *TokenName(int token)
     
     if (token < _T_FIRST_KEYWORD) {
         static char nameBuf[4];
-        nameBuf[0] = '\'';
-        nameBuf[1] = token;
-        nameBuf[2] = '\'';
-        nameBuf[3] = '\0';
+        nameBuf[0] = token;
+        nameBuf[1] = '\0';
         name = nameBuf;
     }
     else if (token < _T_NON_KEYWORDS)

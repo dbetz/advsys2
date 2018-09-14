@@ -98,13 +98,30 @@ fp -> arg 1
 #define OP_SWAP         0x28    /* swap the top two elements on the stack */
 #define OP_TRAP         0x29    /* trap to handler */
 #define OP_SEND         0x2a    /* send a message to an object */
-#define OP_DADDR        0x2b    /* load the address of an object in data space */
-#define OP_PADDR        0x2c    /* load the address of an object property */
-#define OP_CLASS        0x2d    /* load the class of an object */
-#define OP_TRY          0x2e    /* enter try code */
-#define OP_TRYEXIT      0x2f    /* exit try code */
-#define OP_THROW        0x30    /* throw an exception */
-#define OP_NATIVE       0x31    /* execute a native instruction */
+#define OP_PADDR        0x2b    /* load the address of an object property */
+#define OP_CLASS        0x2c    /* load the class of an object */
+#define OP_TRY          0x2d    /* enter try code */
+#define OP_TRYEXIT      0x2e    /* exit try code */
+#define OP_THROW        0x2f    /* throw an exception */
+#define OP_NATIVE       0x30    /* execute a native instruction */
+
+/* memory segments */
+#define DATA_SEG        0   // must be 00
+#define CODE_SEG        1
+#define HUB_SEG         2
+#define COG_SEG         3   // must be 11
+
+/* memory segment base addresses */
+#define DATA_BASE       (DATA_SEG << 30)
+#define CODE_BASE	    (CODE_SEG << 30)
+#define HUB_BASE	    (HUB_SEG << 30)
+#define COG_BASE	    (COG_SEG << 30)
+
+/* address segment offset mask */
+#define ADDR_OFF_MASK   0x3fffffff
+
+/* address shift to get segment number */
+#define ADDR_SEG_SHIFT  30
 
 /* VM trap codes */
 enum {
@@ -112,7 +129,8 @@ enum {
     TRAP_PutChar      = 1,
     TRAP_PrintStr     = 2,
     TRAP_PrintInt     = 3,
-    TRAP_SetDevice    = 4
+    TRAP_PrintNL      = 4,
+    TRAP_SetDevice    = 5
 };
 
 /* prototypes */

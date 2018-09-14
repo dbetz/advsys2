@@ -54,7 +54,6 @@ OTDEF OpcodeTable[] = {
 { OP_SWAP,      "SWAP",     FMT_NONE    },
 { OP_TRAP,      "TRAP",     FMT_BYTE    },
 { OP_SEND,      "SEND",     FMT_BYTE    },
-{ OP_DADDR,     "DADDR",    FMT_LONG    },
 { OP_PADDR,     "PADDR",    FMT_NONE    },
 { OP_CLASS,     "CLASS",    FMT_NONE    },
 { OP_TRY,       "TRY",      FMT_BR      },

@@ -250,7 +250,7 @@ int Execute(ImageHdr *image, int debug)
             break;
         case OP_INDEX:
             tmp = Pop(i);
-            i->tos = (VMVALUE)(tmp + i->tos * sizeof (VMVALUE));
+            i->tos = (VMVALUE)(i->dataBase + tmp + i->tos * sizeof (VMVALUE));
             break;
         case OP_CALL:
             ++i->pc; // skip over the argument count
@@ -298,12 +298,6 @@ int Execute(ImageHdr *image, int debug)
             break;
         case OP_SEND:
             DoSend(i);
-            break;
-        case OP_DADDR:
-            for (tmp = 0, cnt = sizeof(VMVALUE); --cnt >= 0; )
-                tmp = (tmp << 8) | VMCODEBYTE(i->pc++);
-            CPush(i, i->tos);
-            i->tos = (VMVALUE)(i->dataBase + tmp);
             break;
         case OP_PADDR:
             if (!GetPropertyAddr(i, Pop(i), i->tos, &i->tos))
@@ -403,6 +397,9 @@ static void DoTrap(Interpreter *i, int op)
     case TRAP_PrintInt:
         printf("%d", i->tos);
         i->tos = *i->sp++;
+        break;
+    case TRAP_PrintNL:
+        putchar('\n');
         break;
     case TRAP_SetDevice:
         i->device = i->tos;

@@ -53,6 +53,7 @@ enum {
     T_THROW,
     T_ASM,
     T_PRINT,
+    T_PRINTLN,
     _T_NON_KEYWORDS,
     T_LE = _T_NON_KEYWORDS, /* '<=' */
     T_EQ,                   /* '==' */
@@ -161,6 +162,26 @@ struct LocalSymbol {
     char name[1];
 };
 
+/* data fixup structure */
+typedef struct DataFixup DataFixup;
+struct DataFixup {
+    DataFixup *next;
+    Symbol *symbol;
+    VMVALUE offset;
+};
+
+/* data block structure */
+typedef struct DataBlock DataBlock;
+struct DataBlock {
+    DataBlock *next;
+    DataFixup *fixups;
+    DataBlock *parent;
+    VMVALUE parentOffset;
+    VMVALUE offset;
+    int size;
+    uint8_t *data;
+};
+
 /* string structure */
 typedef struct String String;
 struct String {
@@ -222,6 +243,9 @@ typedef struct {
     int currentTryDepth;                            /* parse - current depth of try statements */
     Block *block;                                   /* generate - current loop block */
     int propertyCount;                              /* property count */
+    int dataDepth;                                  /* depth of data block nesting */
+    DataBlock *dataBlocks;                          /* list of data blocks */
+    DataBlock **pNextDataBlock;                     /* place to store next data block */
     uint8_t codeBuf[MAXCODE];                       /* code buffer */
     uint8_t *codeFree;                              /* next available code location */
     uint8_t *codeTop;                               /* top of code buffer */

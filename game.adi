@@ -34,6 +34,14 @@ def screen(n)
     }
 }
 
+def reboot()
+{
+    asm {
+        NATIVE mov t1, #0x80
+        NATIVE clkset t1
+    }
+}
+
 def getp(obj, prop)
 {
     var value;
@@ -176,6 +184,8 @@ def checkActor(actr)
             move(actr, west);
         else if (ch == 'l')
             look(actr);
+        else if (ch == 'q')
+            reboot();
         else
             print "Huh?\n";
     }
