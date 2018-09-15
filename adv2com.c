@@ -22,8 +22,9 @@ int main(int argc, char *argv[])
 {
     ParseContext context;
     ParseContext *c = &context;
-    char outputFile[100], *p;
+    char outputFileBuf[100], *p;
     char *inputFile = NULL;
+    char *outputFile = NULL;
     int showSymbols = VMFALSE;
     int i;
     
@@ -55,6 +56,14 @@ int main(int argc, char *argv[])
             case 'd':   // enable debug mode
                 c->debugMode = VMTRUE;
                 break;
+            case 'o':
+                if(argv[i][2])
+                    outputFile = &argv[i][2];
+                else if(++i < argc)
+                    outputFile = argv[i];
+                else
+                    Usage();
+                break;
             case 's':   // show the global symbol table
                 showSymbols = VMTRUE;
                 break;
@@ -75,13 +84,16 @@ int main(int argc, char *argv[])
     if (!inputFile)
         Usage();
         
-    if (!(p = strrchr(inputFile, '.')))
-        strcpy(outputFile, inputFile);
-    else {
-        strncpy(outputFile, inputFile, p - argv[1]);
-        outputFile[p - inputFile] = '\0';
+    if (!outputFile) {
+        if (!(p = strrchr(inputFile, '.')))
+            strcpy(outputFileBuf, inputFile);
+        else {
+            strncpy(outputFileBuf, inputFile, p - argv[1]);
+            outputFileBuf[p - inputFile] = '\0';
+        }
+        strcat(outputFileBuf, ".dat");
+        outputFile = outputFileBuf;
     }
-    strcat(outputFile, ".dat");
     
     /* initialize the memory spaces */
     c->codeFree = c->codeBuf;
@@ -129,7 +141,7 @@ int main(int argc, char *argv[])
   
 static void Usage(void)
 {
-    printf("usage: adv2com [ -d ] [ -s ] <file>\n");
+    printf("usage: adv2com [ -d ] [ -o <output-file> ] [ -s ] <input-file>\n");
     exit(1);
 }
 
