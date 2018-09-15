@@ -24,7 +24,6 @@
 /* forward type declarations */
 typedef struct ParseTreeNode ParseTreeNode;
 typedef struct NodeListEntry NodeListEntry;
-typedef struct NodeListEntry NodeListEntry;
 
 /* lexical tokens */
 enum {
@@ -111,6 +110,7 @@ typedef enum {
 
 /* forward type declarations */
 typedef struct Symbol Symbol;
+typedef struct String String;
 typedef struct Fixup Fixup;
 
 /* symbol table */
@@ -162,11 +162,19 @@ struct LocalSymbol {
     char name[1];
 };
 
-/* data fixup structure */
-typedef struct DataFixup DataFixup;
-struct DataFixup {
-    DataFixup *next;
+/* symbol data fixup structure */
+typedef struct SymbolDataFixup SymbolDataFixup;
+struct SymbolDataFixup {
+    SymbolDataFixup *next;
     Symbol *symbol;
+    VMVALUE offset;
+};
+
+/* string data fixup structure */
+typedef struct StringDataFixup StringDataFixup;
+struct StringDataFixup {
+    StringDataFixup *next;
+    String *string;
     VMVALUE offset;
 };
 
@@ -174,8 +182,9 @@ struct DataFixup {
 typedef struct DataBlock DataBlock;
 struct DataBlock {
     DataBlock *next;
-    DataFixup *fixups;
     DataBlock *parent;
+    SymbolDataFixup *symbolFixups;
+    StringDataFixup *stringFixups;
     VMVALUE parentOffset;
     VMVALUE offset;
     int size;
@@ -183,9 +192,9 @@ struct DataBlock {
 };
 
 /* string structure */
-typedef struct String String;
 struct String {
     String *next;
+    Fixup *fixups;
     int offset;
 };
 
@@ -455,6 +464,7 @@ Symbol *AddSymbol(ParseContext *c, const char *name, StorageClass storageClass, 
 Symbol *FindSymbol(ParseContext *c, const char *name);
 void PrintSymbols(ParseContext *c);
 void Abort(ParseContext *c, const char *fmt, ...);
+void AddStringRef(ParseContext *c, String *string, FixupType fixupType, VMVALUE offset);
 String *AddString(ParseContext *c, char *value);
 void *LocalAlloc(ParseContext *c, size_t size);
 

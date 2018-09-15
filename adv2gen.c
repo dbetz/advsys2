@@ -337,6 +337,7 @@ static void code_print(ParseContext *c, ParseTreeNode *expr)
 static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
     VMVALUE ival;
+    int offset;
     PVAL pv2;
     
     switch (expr->nodeType) {
@@ -355,7 +356,8 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         break;
     case NodeTypeStringLit:
         putcbyte(c, OP_LIT);
-        putclong(c, expr->u.stringLit.string->offset);
+        offset = putclong(c, 0);
+        AddStringRef(c, expr->u.stringLit.string, FT_CODE, offset);
         *pv = VT_RVALUE;
         break;
     case NodeTypeIntegerLit:

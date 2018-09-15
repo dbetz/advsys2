@@ -391,7 +391,7 @@ static void DoTrap(Interpreter *i, int op)
         i->tos = Pop(i);
         break;
     case TRAP_PrintStr:
-        printf("%s", (char *)(i->stringBase + i->tos));
+        printf("%s", (char *)(i->dataBase + i->tos));
         i->tos = *i->sp++;
         break;
     case TRAP_PrintInt:

@@ -191,15 +191,26 @@ static void ParseAndStoreInitializer(ParseContext *c)
 /* AddNestedArraySymbolRef - add a symbol reference */
 int AddNestedArraySymbolRef(ParseContext *c, DataBlock *dataBlock, Symbol *symbol, VMVALUE offset)
 {
-    DataFixup *fixup;
+    SymbolDataFixup *fixup;
     if (symbol->valueDefined)
         return symbol->v.value;
-    fixup = (DataFixup *)LocalAlloc(c, sizeof(DataFixup));
+    fixup = (SymbolDataFixup *)LocalAlloc(c, sizeof(SymbolDataFixup));
     fixup->symbol = symbol;
     fixup->offset = offset;
-    fixup->next = dataBlock->fixups;
-    dataBlock->fixups = fixup;
+    fixup->next = dataBlock->symbolFixups;
+    dataBlock->symbolFixups = fixup;
     return 0;
+}
+
+/* AddNestedArrayStringRef - add a string reference */
+void AddNestedArrayStringRef(ParseContext *c, DataBlock *dataBlock, String *string, VMVALUE offset)
+{
+    StringDataFixup *fixup;
+    fixup = (StringDataFixup *)LocalAlloc(c, sizeof(StringDataFixup));
+    fixup->string = string;
+    fixup->offset = offset;
+    fixup->next = dataBlock->stringFixups;
+    dataBlock->stringFixups = fixup;
 }
 
 /* ParseNestedArrayConstantLiteralExpr - parse a constant literal expression (including objects and functions) */
@@ -209,9 +220,10 @@ static VMVALUE ParseNestedArrayConstantLiteralExpr(ParseContext *c, DataBlock *d
     VMVALUE value = NIL;
     switch (expr->nodeType) {
     case NodeTypeIntegerLit:
-        value = expr->u.integerLit.value;
+        value = 0;
         break;
     case NodeTypeStringLit:
+        AddNestedArrayStringRef(c, dataBlock, expr->u.stringLit.string, offset);
         value = expr->u.stringLit.string->offset;
         break;
     case NodeTypeGlobalSymbolRef:
@@ -287,8 +299,9 @@ static void ParseNestedArray(ParseContext *c, DataBlock *parent, VMVALUE parentO
 /* PlaceNestedArrays - place nested arrays in data memory */
 static void PlaceNestedArrays(ParseContext *c)
 {
+    SymbolDataFixup *symbolFixup;
+    StringDataFixup *stringFixup;
     DataBlock *block;
-    DataFixup *fixup;
     
     /* place each block in data memory */
     block = c->dataBlocks;
@@ -312,12 +325,21 @@ static void PlaceNestedArrays(ParseContext *c)
             *(VMVALUE *)(c->dataBuf + block->parentOffset) = block->offset;
         
         /* copy the fixups to the symbol fixup lists */
-        fixup = block->fixups;
-        while (fixup) {
-            DataFixup *next = fixup->next;
-            AddSymbolRef(c, fixup->symbol, FT_DATA, block->offset + fixup->offset);
-            free(fixup);
-            fixup = next;
+        symbolFixup = block->symbolFixups;
+        while (symbolFixup) {
+            SymbolDataFixup *nextSymbol = symbolFixup->next;
+            AddSymbolRef(c, symbolFixup->symbol, FT_DATA, block->offset + symbolFixup->offset);
+            free(symbolFixup);
+            symbolFixup = nextSymbol;
+        }
+        
+        /* copy the fixups to the string fixup lists */
+        stringFixup = block->stringFixups;
+        while (stringFixup) {
+            StringDataFixup *nextString = stringFixup->next;
+            AddStringRef(c, stringFixup->string, FT_DATA, block->offset + stringFixup->offset);
+            free(stringFixup);
+            stringFixup = nextString;
         }
         
         /* move ahead to the next block */
@@ -1012,7 +1034,8 @@ static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VM
         value = expr->u.integerLit.value;
         break;
     case NodeTypeStringLit:
-        value = expr->u.stringLit.string->offset;
+        AddStringRef(c, expr->u.stringLit.string, fixupType, offset);
+        value = 0;
         break;
     case NodeTypeGlobalSymbolRef:
         switch (expr->u.symbolRef.symbol->storageClass) {

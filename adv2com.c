@@ -15,6 +15,7 @@
 static void Usage(void);
 static void ConnectAll(ParseContext *c);
 static void WriteImage(ParseContext *c, char *name);
+static void PlaceStrings(ParseContext *c);
 static void PrintStrings(ParseContext *c);
 
 int main(int argc, char *argv[])
@@ -108,6 +109,9 @@ int main(int argc, char *argv[])
     /* compile the program */
     ParseDeclarations(c);
     
+    /* place strings at the end of data space */
+    PlaceStrings(c);
+    
     /* link all child objects with their parents */
     ConnectAll(c);
     
@@ -132,8 +136,8 @@ static void Usage(void)
 static void WriteImage(ParseContext *c, char *name)
 {
     int dataSize = c->dataFree - c->dataBuf;
-    int codeSize = c->codeFree - c->codeBuf;
     int stringSize = c->stringFree - c->stringBuf;
+    int codeSize = c->codeFree - c->codeBuf;
     int imageSize = sizeof(ImageHdr) + dataSize + codeSize + stringSize;
     ImageHdr *hdr;
     Symbol *sym;
@@ -143,14 +147,14 @@ static void WriteImage(ParseContext *c, char *name)
         ParseError(c, "insufficient memory to build image");
     hdr->dataOffset = sizeof(ImageHdr);
     hdr->dataSize = dataSize;
-    hdr->codeOffset = hdr->dataOffset + dataSize;
-    hdr->codeSize = codeSize;
-    hdr->stringOffset = hdr->codeOffset + hdr->codeSize;
+    hdr->stringOffset = hdr->dataOffset + hdr->dataSize;
     hdr->stringSize = stringSize;
+    hdr->codeOffset = hdr->stringOffset + stringSize;
+    hdr->codeSize = codeSize;
     
     memcpy((uint8_t *)hdr + sizeof(ImageHdr), c->dataBuf, dataSize);
-    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize, c->codeBuf, codeSize);
-    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize + codeSize, c->stringBuf, stringSize);
+    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize, c->stringBuf, stringSize);
+    memcpy((uint8_t *)hdr + sizeof(ImageHdr) + dataSize + stringSize, c->codeBuf, codeSize);
     
     if (!(sym = FindSymbol(c, "main")))
         ParseError(c, "no 'main' function");
@@ -386,6 +390,16 @@ void PrintSymbols(ParseContext *c)
             printf("  %20s %s (undefined)\n", sym->name, storageClassNames[sym->storageClass]);
 }
 
+/* AddStringRef - add a string reference */
+void AddStringRef(ParseContext *c, String *string, FixupType fixupType, VMVALUE offset)
+{
+    Fixup *fixup = (Fixup *)LocalAlloc(c, sizeof(Fixup));
+    fixup->type = fixupType;
+    fixup->offset = offset;
+    fixup->next = string->fixups;
+    string->fixups = fixup;
+}
+
 /* AddString - add a string to the string table */
 String *AddString(ParseContext *c, char *value)
 {
@@ -403,6 +417,7 @@ String *AddString(ParseContext *c, char *value)
     /* allocate the string structure */
     size = sizeof(String) + strlen(value);
     str = (String *)LocalAlloc(c, size);
+    memset(str, 0, sizeof(String));
     str->offset = c->stringFree - c->stringBuf;
     strcpy((char *)c->stringFree, value);
     c->stringFree += strlen(value) + 1;
@@ -413,11 +428,45 @@ String *AddString(ParseContext *c, char *value)
     return str;
 }
 
+/* PlaceStrings - place strings at data space offsets */
+void PlaceStrings(ParseContext *c)
+{
+    String *str, *nextStr;
+    Fixup *fixup, *nextFixup;
+    
+    /* copy the string buffer to the end of the data buffer */
+    int stringBase = c->dataFree - c->dataBuf;
+    int stringSize = c->stringFree - c->stringBuf;
+    if (c->dataFree + stringSize > c->dataTop)
+        ParseError(c, "insufficient data space");
+    memcpy(c->dataFree, c->stringBuf, stringSize);
+    
+    /* fixup data and code string references */
+    for (str = c->strings; str != NULL; str = nextStr) {
+        nextStr = str->next;
+        str->offset += stringBase;
+        for (fixup = str->fixups; fixup != NULL; fixup = nextFixup) {
+            nextFixup = fixup->next;
+            switch (fixup->type) {
+            case FT_DATA:
+                *(VMVALUE *)&c->dataBuf[fixup->offset] = str->offset;
+                break;
+            case FT_CODE:
+                wr_clong(c, fixup->offset, str->offset);
+                break;
+            }
+            free(fixup);
+        }
+        free(str);
+    }
+}
+
 static void PrintStrings(ParseContext *c)
 {
     String *str;
+    int dataSize = c->dataFree - c->dataBuf;
     for (str = c->strings; str != NULL; str = str->next)
-        printf("%d '%s'\n", str->offset, c->stringBuf + str->offset);
+        printf("%d '%s'\n", str->offset, c->stringBuf + (str->offset - dataSize));
 }
 
 /* LocalAlloc - allocate memory from the local heap */
