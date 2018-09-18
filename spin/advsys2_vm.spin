@@ -21,14 +21,14 @@ IMAGE_StringSize  = 5
 IMAGE_MainFunction= 6
 _IMAGE_SIZE       = 7
 
-STATE_FP          = 0
+STATE_TOS         = 0
 STATE_SP          = 1
-STATE_TOS         = 2
+STATE_FP          = 2
 STATE_PC          = 3
 STATE_EFP         = 4
-STATE_STEPPING    = 5
-STATE_STACK       = 6
-STATE_STACK_TOP   = 7
+STATE_STACK       = 5
+STATE_STACK_TOP   = 6
+STATE_STEPPING    = 7
 _STATE_SIZE       = 8
 
 VM_Continue       = 1
@@ -49,7 +49,10 @@ TRAP_GetChar      = 0
 TRAP_PutChar      = 1
 TRAP_PrintStr     = 2
 TRAP_PrintInt     = 3
-TRAP_SetDevice    = 4
+TRAP_PrintNL      = 4
+TRAP_SetDevice    = 5
+
+COG_BASE		= $80000000
 
 ' virtual machine opcodes
 OP_HALT         = $00    ' halt
@@ -95,14 +98,13 @@ OP_TUCK         = $27    ' a b -> b a b
 OP_SWAP         = $28    ' swap the top to elements of the stack
 OP_TRAP         = $29    ' invoke a trap handler
 OP_SEND         = $2a    ' send a message to an object
-OP_DADDR        = $2b    ' load the address of something in data space
-OP_PADDR        = $2c    ' load the address of a property value
-OP_CLASS        = $2d    ' get the class of an object
-OP_TRY          = $2e    ' enter a try block
-OP_TRYEXIT      = $2f    ' exit a try block
-OP_THROW        = $30    ' throw an exception
-OP_NATIVE       = $31    ' execute a native instruction
-OP_LAST         = $31
+OP_PADDR        = $2b    ' load the address of a property value
+OP_CLASS        = $2c    ' get the class of an object
+OP_TRY          = $2d    ' enter a try block
+OP_TRYEXIT      = $2e    ' exit a try block
+OP_THROW        = $2f    ' throw an exception
+OP_NATIVE       = $30    ' execute a native instruction
+OP_LAST         = $30
 
 DIV_OP          = 0
 REM_OP          = 1
@@ -134,10 +136,7 @@ DAT
 _init
         jmp     #init2
         
-' base addresses
-dbase       long    0
-cbase       long    0
-sbase       long    0
+regs
 
 ' virtual machine registers
 tos         long    0
@@ -146,12 +145,33 @@ fp          long    0
 pc          long    0
 efp         long    0
 
+' stack limits
+stack       long    0
+stackTop    long    0
+
+' set if single stepping
+stepping    long    0
+
+end_regs
+
+' memory segment base addresses
+dbase       long    0
+cbase       long    0
+sbase       long    0
+
 ' temporary registers for NATIVE instructions
 t1          long    0
 t2          long    0
 t3          long    0
 t4          long    0
         
+' temporaries used by the VM instructions
+r1          long    0
+r2          long    0
+r3          long    0
+r4          long    0
+r5          long    0
+
         ' prepare to parse the initialization parameters
 init2   mov     r1,par
 
@@ -232,39 +252,32 @@ cmd_table                           ' command dispatch table
 
 _VM_Continue
         mov     r1,state_ptr
-        rdlong  fp,r1           ' load fp
+        movs    :rpatch, #regs
+        mov     r2,#end_regs - regs
+:rloop  rdlong  32,r1
+:rpatch mov     0-0, r3
         add     r1,#4
-        rdlong  sp,r1           ' load sp
-        add     r1,#4
-        rdlong  tos,r1          ' load tos
-        add     r1,#4
-        rdlong  pc,r1           ' load pc
-        add     r1,#4
-        rdlong  efp,r1          ' load efp
-        add     r1,#4
-        rdlong  stepping,r1     ' load stepping
+        add     :rpatch, dstinc
+        djnz    r2,#:rloop
         jmp     #_start
 
 store_state
-        mov     r2,state_ptr
-        wrlong  fp,r2       ' store fp
-        add     r2,#4
-        wrlong  sp,r2       ' store sp
-        add     r2,#4
-        wrlong  tos,r2      ' store tos
-        add     r2,#4
-        wrlong  pc,r2       ' store pc
-        add     r2,#4
-        wrlong  efp,r2      ' store efp
-        add     r2,#4
-        wrlong  stepping,r2 ' store stepping
-        add     r2,#4
-        wrlong  stack,r2    ' store stack
-        add     r2,#4
-        wrlong  stackTop,r2 ' store stackTop
+        mov     r1,state_ptr
+        movs    :sloop, #regs
+        mov     r2,#end_regs - regs
+:sloop  mov     r3, 0-0
+        wrlong  r3,r1
+        add     r1,#4
+        add     :sloop, #1
+        djnz    r2,#:sloop
 store_state_ret
         ret
 
+dstinc  long    $200
+
+return_r1
+        mov     tos,r1
+        
 _next   tjz     stepping,#_start
 
 _step_end
@@ -323,7 +336,6 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_SWAP               ' swap the top to elements of the stack
         jmp     #_OP_TRAP               ' invoke a trap handler
         jmp     #_OP_SEND               ' send a message to an object
-        jmp     #_OP_DADDR              ' load the address of something in data space
         jmp     #_OP_PADDR              ' load the address of a property value
         jmp     #_OP_CLASS              ' get the class of an object
         jmp     #_OP_TRY                ' enter a try block
@@ -337,24 +349,20 @@ _OP_HALT               ' halt
 
 _OP_BRT                ' branch on true
         tjnz    tos,#take_branch
-        call    #pop_tos
-        add     pc,#2
-        jmp     #_next
+        jmp     #skip_branch
 
 _OP_BRTSC              ' branch on true (for short circuit booleans)
         tjnz    tos,#take_branch_sc
-        call    #pop_tos
-        add     pc,#2
-        jmp     #_next
+        jmp     #skip_branch
 
 _OP_BRF                ' branch on false
         tjz     tos,#take_branch
-        call    #pop_tos
-        add     pc,#2
-        jmp     #_next
+        jmp     #skip_branch
 
 _OP_BRFSC              ' branch on false (for short circuit booleans)
         tjz     tos,#take_branch_sc
+
+skip_branch
         call    #pop_tos
         add     pc,#2
         jmp     #_next
@@ -386,8 +394,7 @@ _OP_ADD                ' add two numeric expressions
 _OP_SUB                ' subtract two numeric expressions
         call    #pop_r1
         subs    r1,tos
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
         
 _OP_MUL                ' multiply two numeric expressions
         call    #pop_r1
@@ -429,14 +436,12 @@ _OP_BXOR               ' bitwise exclusive or
 _OP_SHL                ' shift left
         call    #pop_r1
         shl     r1,tos
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
         
 _OP_SHR                ' shift right
         call    #pop_r1
         shr     r1,tos
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
         
 _OP_LT                 ' less than
         call    #pop_r1
@@ -483,16 +488,14 @@ _OP_GT                 ' greater than
 _OP_LIT                ' load a literal
         call    #push_tos
         call    #imm32
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
 
 _OP_SLIT               ' load a short literal (-128 to 127)
         call    #push_tos
         call    #get_code_byte
         shl     r1,#24
         sar     r1,#24
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
 
 _OP_LOAD               ' load a long from memory
         rdlong  tos,tos
@@ -518,7 +521,6 @@ _OP_LADDR              ' load a local variable relative to the frame pointer
         shl     r1,#24
         sar     r1,#22
         add     r1,fp
-        mov     tos,r1
         jmp     #_next
         
 _OP_INDEX               ' index into a vector
@@ -575,14 +577,12 @@ _OP_DUP                ' duplicate the top element of the stack
 _OP_TUCK               ' a b -> b a b
         rdlong  r1,sp
         call    #push_tos
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
 
 _OP_SWAP               ' swap the top to elements of the stack
         rdlong  r1,sp
         wrlong  tos,sp
-        mov     tos,r1
-        jmp     #_next
+        jmp     #return_r1
 
 _OP_TRAP
         call    #get_code_byte
@@ -607,13 +607,6 @@ _OP_SEND               ' send a message to an object
 _OP_CLASS              ' get the class of an object
         add     tos,dbase
         rdlong  tos,tos
-        jmp     #_next
-
-_OP_DADDR              ' load the address of something in data space
-        call    #push_tos
-        call    #imm32
-        add     r1,dbase
-        mov     tos,r1
         jmp     #_next
 
 _OP_PADDR              ' load the address of a property value
@@ -701,6 +694,7 @@ prop_addr_ret
         ret
         
 match   add     r3,#4       ' get the address of the property value
+        sub     r2,dbase
         jmp     prop_addr_ret
         
 lowMask long    $7fffffff
@@ -787,6 +781,8 @@ arg_sts_ptr             long    0
 arg2_fcn_ptr            long    0
 state_ptr               long    0
 
+' fast_mul and fast_div adapted from Heater's ZOG
+
 fast_mul                ' tos * r1
                         ' account for sign
                         abs     tos, tos        wc
@@ -835,19 +831,5 @@ fast_div                ' tos = r1 / tos
               if_c      mov     tos, r1                 ' user wanted the remainder, not the quotient
                         negnz   tos, tos                ' need to invert the result
                         jmp     #_next
-
-' adapted from Heater's ZOG
-
-' virtual machine registers
-stack       long    0
-stackTop    long    0
-stepping    long    0
-
-' temporaries used by the VM instructions
-r1          long    0
-r2          long    0
-r3          long    0
-r4          long    0
-r5          long    0
 
             fit     496

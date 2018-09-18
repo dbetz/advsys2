@@ -220,7 +220,7 @@ static VMVALUE ParseNestedArrayConstantLiteralExpr(ParseContext *c, DataBlock *d
     VMVALUE value = NIL;
     switch (expr->nodeType) {
     case NodeTypeIntegerLit:
-        value = 0;
+        value = expr->u.integerLit.value;
         break;
     case NodeTypeStringLit:
         AddNestedArrayStringRef(c, dataBlock, expr->u.stringLit.string, offset);

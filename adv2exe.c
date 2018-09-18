@@ -230,27 +230,27 @@ int Execute(ImageHdr *image, int debug)
             i->tos = tmpb;
             break;
         case OP_LOAD:
-            i->tos = *(VMVALUE *)i->tos;
+            i->tos = *(VMVALUE *)(i->dataBase + i->tos);
             break;
         case OP_LOADB:
-            i->tos = *(uint8_t *)i->tos;
+            i->tos = *(uint8_t *)(i->dataBase + i->tos);
             break;
         case OP_STORE:
             tmp = Pop(i);
-            *(VMVALUE *)tmp = i->tos;
+            *(VMVALUE *)(i->dataBase + tmp) = i->tos;
             break;
         case OP_STOREB:
             tmp = Pop(i);
-            *(uint8_t *)tmp = i->tos;
+            *(uint8_t *)(i->dataBase + tmp) = i->tos;
             break;
         case OP_LADDR:
             tmpb = (int8_t)VMCODEBYTE(i->pc++);
             CPush(i, i->tos);
-            i->tos = (VMVALUE)&i->fp[(int)tmpb];
+            i->tos = (VMVALUE)((uint8_t *)&i->fp[(int)tmpb] - i->dataBase);
             break;
         case OP_INDEX:
             tmp = Pop(i);
-            i->tos = (VMVALUE)(i->dataBase + tmp + i->tos * sizeof (VMVALUE));
+            i->tos = tmp + i->tos * sizeof (VMVALUE);
             break;
         case OP_CALL:
             ++i->pc; // skip over the argument count
@@ -302,6 +302,7 @@ int Execute(ImageHdr *image, int debug)
         case OP_PADDR:
             if (!GetPropertyAddr(i, Pop(i), i->tos, &i->tos))
                 Throw(i, 1);
+            i->tos -= (VMVALUE)i->dataBase;
             break;
         case OP_CLASS:
             i->tos = ((ObjectHdr *)(i->dataBase + i->tos))->class;

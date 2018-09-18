@@ -94,6 +94,10 @@ PRI do_trap(mbox, state) | p, len, ch
     vm#TRAP_PrintInt:
       ser.dec(long[state][vm#STATE_TOS])
       pop_tos(state)
+    vm#TRAP_PrintNL:
+      ser.tx($0a);
+    vm#TRAP_SetDevice:
+      ' nothing to do here
     other:
         ser.str(string("UNKNOWN TRAP:"))
         ser.hex(long[mbox][vm#MBOX_ARG2_FCN], 8)
