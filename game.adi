@@ -30,7 +30,7 @@ def screen(n)
     asm {
       LADDR 0
       LOAD
-      TRAP 4
+      TRAP 5
     }
 }
 

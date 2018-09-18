@@ -327,6 +327,9 @@ int Execute(ImageHdr *image, int debug)
         case OP_THROW:
             Throw(i, i->tos);
             break;
+        case OP_NATIVE:
+            ++i->pc;
+            break;
         default:
             Abort(i, "undefined opcode 0x%02x", VMCODEBYTE(i->pc - 1));
             break;
