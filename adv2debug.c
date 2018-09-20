@@ -18,7 +18,7 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
 	printf("%*s", indent, "");
     switch (node->nodeType) {
     case NodeTypeFunctionDef:
-        printf("FunctionDef\n");
+        printf("FunctionDef: %s\n", node->u.functionDef.name);
         PrintLocalSymbols(&node->u.functionDef.arguments, "arguments", indent + 2);
         PrintLocalSymbols(&node->u.functionDef.locals, "locals", indent + 2);
         PrintNode(c, node->u.functionDef.body, indent + 2);

@@ -19,10 +19,10 @@
 typedef struct {
     VMVALUE dataOffset;
     VMVALUE dataSize;
-    VMVALUE stringOffset;
-    VMVALUE stringSize;
     VMVALUE codeOffset;
     VMVALUE codeSize;
+    VMVALUE stringOffset;
+    VMVALUE stringSize;
     VMVALUE mainFunction;
 } ImageHdr;
 

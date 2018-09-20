@@ -100,10 +100,10 @@ def listContents(actr, prop)
     while (child) {
         if (child.class != actor && (desc = child.(prop)) != nil) {
             if (first) {
-                print "You see:\n";
+                println "You see:";
                 first = false;
             }
-            print "  ", #desc, "\n";
+            println "  ", #desc;
         }
         child = child._sibling;
     }
@@ -112,7 +112,7 @@ def listContents(actr, prop)
 def look(actr)
 {
     var loc = actr._loc;
-    print #loc.description, "\n";
+    println #loc.description;
     listContents(actr, name);
 }
 
@@ -122,7 +122,7 @@ def announce(actr)
     var child = loc._child;
     while (child) {
         if (child.class == actor && child != actr)
-            print #child.name, " is here.\n";
+            println #child.name, " is here.";
         child = child._sibling;
     }
 }
@@ -133,7 +133,7 @@ def announceMovement(actr, loc, tail)
     while (child) {
         if (child.class == actor && child != actr) {
             screen(child.index);
-            print #actr.name, #tail;
+            println #actr.name, #tail;
         }
         child = child._sibling;
     }
@@ -149,13 +149,13 @@ def move(actr, dir)
         look(actr);
         announce(actr);
         if (multiScreen) {
-            announceMovement(actr, oldloc, " left.\n");
-            announceMovement(actr, newloc, " arrived.\n");
+            announceMovement(actr, oldloc, " left.");
+            announceMovement(actr, newloc, " arrived.");
             screen(actr.index);
         }
     }
     else {
-        print "You can't go that way!\n";
+        println "You can't go that way!";
     }
 }
 
@@ -187,6 +187,6 @@ def checkActor(actr)
         else if (ch == 'q')
             reboot();
         else
-            print "Huh?\n";
+            println "Huh?";
     }
 }

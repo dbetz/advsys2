@@ -20,7 +20,7 @@ VAR
   ' this should be a local variable but there is a bug in Spin that prevents
   ' using vm$_INIT_SIZE as the size of a local array
   long initParams[vm#_INIT_SIZE]
-  long codeBase, stringBase
+  long codeBase, dataBase
   long device
 
 PUB init_video_and_keyboard | lock, s
@@ -56,7 +56,7 @@ PUB init_video_and_keyboard | lock, s
 
 PUB init(mbox, state, stack, stack_size, image)
   codeBase := image + long[image][vm#IMAGE_CodeOffset]
-  stringBase := image + long[image][vm#IMAGE_StringOffset]
+  dataBase := image + long[image][vm#IMAGE_DataOffset]
   initParams[vm#INIT_IMAGE] := image
   initParams[vm#INIT_STATE] := state
   initParams[vm#INIT_MBOX] := mbox
@@ -93,8 +93,9 @@ PRI process_requests(mbox, state, sts)
       vm#STS_UncaughtThrow:
         halt(mbox, state, string("UNCAUGHT THROW"))
       other:
-        vga[0].str(string("sts: "))
+        vga[0].str(string("STS "))
         vga[0].hex(sts, 8)
+        vga[0].str(string(": "))
         halt2(mbox, state)
     sts := vm.poll(mbox)
 
@@ -113,17 +114,16 @@ PRI do_step(mbox, state)
   repeat while kbd.getKey(0) <> " "
   vm.single_step(mbox, state)
 
-PRI do_trap(mbox, state) | p, len, ch
+PRI do_trap(mbox, state)
   case long[mbox][vm#MBOX_ARG2_FCN]
     vm#TRAP_GetChar:
 	  push_tos(state)
-	  ch := kbd.getKey(device)
-      long[state][vm#STATE_TOS] := ch
+      long[state][vm#STATE_TOS] := kbd.getKey(device)
     vm#TRAP_PutChar:
       vga[device].tx(long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintStr:
-      vga[device].str(stringBase + long[state][vm#STATE_TOS])
+      vga[device].str(dataBase + long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintInt:
       vga[device].dec(long[state][vm#STATE_TOS])
@@ -188,22 +188,22 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   vga[0].crlf
 
 PUB show_state(state)
-  vga[0].str(string("fp:"))
-  vga[0].hex(long[state][vm#STATE_FP], 8)
+  vga[0].str(string("tos:"))
+  vga[0].hex(long[state][vm#STATE_TOS], 8)
   vga[0].str(string(" sp:"))
   vga[0].hex(long[state][vm#STATE_SP], 8)
-  vga[0].str(string(" tos:"))
-  vga[0].hex(long[state][vm#STATE_TOS], 8)
+  vga[0].str(string(" fp:"))
+  vga[0].hex(long[state][vm#STATE_FP], 8)
   vga[0].str(string(" pc:"))
   vga[0].hex(long[state][vm#STATE_PC], 8)
   vga[0].str(string(" efp:"))
   vga[0].hex(long[state][vm#STATE_EFP], 8)
-  vga[0].str(string(" stepping:"))
-  vga[0].hex(long[state][vm#STATE_STEPPING], 8)
   vga[0].str(string(" stack:"))
   vga[0].hex(long[state][vm#STATE_STACK], 8)
   vga[0].str(string(" stackTop:"))
   vga[0].hex(long[state][vm#STATE_STACK_TOP], 8)
+  vga[0].str(string(" stepping:"))
+  vga[0].hex(long[state][vm#STATE_STEPPING], 8)
   vga[0].crlf
   
 DAT 'vconfig

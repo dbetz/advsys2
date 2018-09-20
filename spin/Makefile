@@ -25,10 +25,16 @@ game:	../game.adv ../game.adi
 	proploader -s -t advsys2_run.binary
 
 gamed:	../game.adv ../game.adi
-	cd ..;./adv2com game.adv
+	cd ..;./adv2com -d game.adv
 	mv ../game.dat advsys2.dat
 	openspin advsys2_step.spin
 	proploader -s -t advsys2_step.binary
+
+wordfire:	../wordfire_game.adv ../game.adi
+	cd ..;./adv2com wordfire_game.adv
+	mv ../wordfire_game.dat advsys2.dat
+	openspin wordfire.spin
+	proploader -s wordfire.binary
 
 wordfire:	../wordfire_game.adv ../game.adi
 	cd ..;./adv2com wordfire_game.adv

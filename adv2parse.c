@@ -20,8 +20,8 @@ static void ParseFunctionDef(ParseContext *c, char *name);
 static void ParseVar(ParseContext *c);
 static void ParseObject(ParseContext *c, char *name);
 static void ParseProperty(ParseContext *c);
-static ParseTreeNode *ParseFunction(ParseContext *c);
-static ParseTreeNode *ParseMethod(ParseContext *c);
+static ParseTreeNode *ParseFunction(ParseContext *c, char *name);
+static ParseTreeNode *ParseMethod(ParseContext *c, char *name);
 static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offset);
 static ParseTreeNode *ParseIf(ParseContext *c);
 static ParseTreeNode *ParseWhile(ParseContext *c);
@@ -160,7 +160,7 @@ static void ParseFunctionDef(ParseContext *c, char *name)
     /* enter the function name in the global symbol table */
     AddGlobal(c, name, SC_FUNCTION, (VMVALUE)(c->codeFree - c->codeBuf));
     
-    node = ParseFunction(c);
+    node = ParseFunction(c, name);
     if (c->debugMode)
         PrintNode(c, node, 0);
     
@@ -439,7 +439,7 @@ static void ParseVar(ParseContext *c)
 static void ParseObject(ParseContext *c, char *className)
 {
     VMVALUE class, object;
-    char name[MAXTOKEN];
+    char name[MAXTOKEN], pname[MAXTOKEN];
     ParseTreeNode *node;
     ObjectHdr *objectHdr;
     Property *property, *p;
@@ -491,7 +491,8 @@ static void ParseObject(ParseContext *c, char *className)
             tkn = GetToken(c);
         }
         Require(c, tkn, T_IDENTIFIER);
-        tag = AddProperty(c, c->token);
+        strcpy(pname, c->token);
+        tag = AddProperty(c, pname);
         FRequire(c, ':');
         
         /* find a property copied from the class */
@@ -517,7 +518,7 @@ static void ParseObject(ParseContext *c, char *className)
         if ((tkn = GetToken(c)) == T_METHOD) {
             uint8_t *code;
             int codeLength;
-            node = ParseMethod(c);
+            node = ParseMethod(c, pname);
             if (c->debugMode)
                 PrintNode(c, node, 0);
             code = code_functiondef(c, node, &codeLength);
@@ -562,11 +563,13 @@ static void ParseProperty(ParseContext *c)
 }
 
 /* ParseFunction - parse a function definition */
-static ParseTreeNode *ParseFunction(ParseContext *c)
+static ParseTreeNode *ParseFunction(ParseContext *c, char *name)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
     c->currentFunction = node;
+    node->u.functionDef.name = (char *)LocalAlloc(c, strlen(name) + 1);
+    strcpy(node->u.functionDef.name, name);
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
     c->trySymbols = NULL;
@@ -577,11 +580,13 @@ static ParseTreeNode *ParseFunction(ParseContext *c)
 }
 
 /* ParseMethod - parse a method definition */
-static ParseTreeNode *ParseMethod(ParseContext *c)
+static ParseTreeNode *ParseMethod(ParseContext *c, char *name)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeFunctionDef);
     
     c->currentFunction = node;
+    node->u.functionDef.name = (char *)LocalAlloc(c, strlen(name) + 1);
+    strcpy(node->u.functionDef.name, name);
     InitLocalSymbolTable(&node->u.functionDef.arguments);
     InitLocalSymbolTable(&node->u.functionDef.locals);
     c->trySymbols = NULL;

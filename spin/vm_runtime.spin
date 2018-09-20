@@ -16,14 +16,14 @@ VAR
   ' this should be a local variable but there is a bug in Spin that prevents
   ' using vm$_INIT_SIZE as the size of a local array
   long initParams[vm#_INIT_SIZE]
-  long codeBase, stringBase
+  long codeBase, dataBase
 
 PUB init_serial(baudrate, rxpin, txpin)
   ser.start(rxpin, txpin, 0, baudrate)
 
 PUB init(mbox, state, stack, stack_size, image)
   codeBase := image + long[image][vm#IMAGE_CodeOffset]
-  stringBase := image + long[image][vm#IMAGE_StringOffset]
+  dataBase := image + long[image][vm#IMAGE_DataOffset]
   initParams[vm#INIT_IMAGE] := image
   initParams[vm#INIT_STATE] := state
   initParams[vm#INIT_MBOX] := mbox
@@ -60,8 +60,9 @@ PRI process_requests(mbox, state, sts)
       vm#STS_UncaughtThrow:
         halt(mbox, state, string("UNCAUGHT THROW"))
       other:
-        ser.str(string("sts: "))
+        ser.str(string("STS "))
         ser.hex(sts, 8)
+        ser.str(string(": "))
         halt2(mbox, state)
     sts := vm.poll(mbox)
 
@@ -80,7 +81,7 @@ PRI do_step(mbox, state)
   repeat while ser.rx <> " "
   vm.single_step(mbox, state)
 
-PRI do_trap(mbox, state) | p, len, ch
+PRI do_trap(mbox, state)
   case long[mbox][vm#MBOX_ARG2_FCN]
     vm#TRAP_GetChar:
 	  push_tos(state)
@@ -89,15 +90,16 @@ PRI do_trap(mbox, state) | p, len, ch
       ser.tx(long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintStr:
-      ser.str(stringBase + long[state][vm#STATE_TOS])
+      ser.str(dataBase + long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintInt:
       ser.dec(long[state][vm#STATE_TOS])
       pop_tos(state)
     vm#TRAP_PrintNL:
-      ser.tx($0a);
+      ser.crlf
     vm#TRAP_SetDevice:
       ' nothing to do here
+      pop_tos(state)
     other:
         ser.str(string("UNKNOWN TRAP:"))
         ser.hex(long[mbox][vm#MBOX_ARG2_FCN], 8)
@@ -130,7 +132,7 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   pc := long[state][vm#STATE_PC]
   ser.hex(pc - codeBase, 8)
   ser.tx(" ")
-  ser.hex(byte[codeBase][pc], 2)
+  ser.hex(byte[pc], 2)
   ser.tx(" ")
   fp := long[state][vm#STATE_FP]
   ser.hex(fp, 8)
@@ -153,12 +155,12 @@ PRI show_status(mbox, state) | pc, sp, fp, stackTop, i
   ser.crlf
 
 PUB show_state(state)
-  ser.str(string("fp:"))
-  ser.hex(long[state][vm#STATE_FP], 8)
+  ser.str(string("tos:"))
+  ser.hex(long[state][vm#STATE_TOS], 8)
   ser.str(string(" sp:"))
   ser.hex(long[state][vm#STATE_SP], 8)
-  ser.str(string(" tos:"))
-  ser.hex(long[state][vm#STATE_TOS], 8)
+  ser.str(string(" fp:"))
+  ser.hex(long[state][vm#STATE_FP], 8)
   ser.str(string(" pc:"))
   ser.hex(long[state][vm#STATE_PC], 8)
   ser.str(string(" efp:"))

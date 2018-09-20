@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
     InitSymbolTable(c);
     InitScan(c);
     AddGlobal(c, "nil", SC_CONSTANT, 0);
+    c->pNextString = &c->strings;
     c->pNextDataBlock = &c->dataBlocks;
     
     /* add the containment properties */
@@ -133,6 +134,7 @@ int main(int argc, char *argv[])
     if (c->debugMode) {
         PrintStrings(c);
     }
+    printf("data: %d, code %d, strings: %d\n", c->dataFree - c->dataBuf, c->codeFree - c->codeBuf, c->stringFree - c->stringBuf);
     
     WriteImage(c, outputFile);
     
@@ -423,18 +425,14 @@ String *AddString(ParseContext *c, char *value)
         if (strcmp(value, (char *)c->stringBuf + str->offset) == 0)
             return str;
 
-    if (c->stringFree + strlen(value) + 1 > c->stringTop)
-        ParseError(c, "insufficient string space");
-
     /* allocate the string structure */
-    size = sizeof(String) + strlen(value);
-    str = (String *)LocalAlloc(c, size);
+    size = strlen(value) + 1;
+    str = (String *)LocalAlloc(c, sizeof(String) + size - 1);
     memset(str, 0, sizeof(String));
-    str->offset = c->stringFree - c->stringBuf;
-    strcpy((char *)c->stringFree, value);
-    c->stringFree += strlen(value) + 1;
-    str->next = c->strings;
-    c->strings = str;
+    str->size = size;
+    strcpy(str->data, value);
+    *c->pNextString = str;
+    c->pNextString = &str->next;
 
     /* return the string table entry */
     return str;
@@ -443,20 +441,16 @@ String *AddString(ParseContext *c, char *value)
 /* PlaceStrings - place strings at data space offsets */
 void PlaceStrings(ParseContext *c)
 {
-    String *str, *nextStr;
+    String *str;
     Fixup *fixup, *nextFixup;
     
-    /* copy the string buffer to the end of the data buffer */
-    int stringBase = c->dataFree - c->dataBuf;
-    int stringSize = c->stringFree - c->stringBuf;
-    if (c->dataFree + stringSize > c->dataTop)
-        ParseError(c, "insufficient data space");
-    memcpy(c->dataFree, c->stringBuf, stringSize);
-    
     /* fixup data and code string references */
-    for (str = c->strings; str != NULL; str = nextStr) {
-        nextStr = str->next;
-        str->offset += stringBase;
+    for (str = c->strings; str != NULL; str = str->next) {
+        str->offset = c->dataFree - c->dataBuf;
+        if (c->dataFree + str->size > c->dataTop)
+            ParseError(c, "insufficient data space");
+        memcpy(c->dataFree, str->data, str->size);
+        c->dataFree += str->size;
         for (fixup = str->fixups; fixup != NULL; fixup = nextFixup) {
             nextFixup = fixup->next;
             switch (fixup->type) {
@@ -469,16 +463,14 @@ void PlaceStrings(ParseContext *c)
             }
             free(fixup);
         }
-        free(str);
     }
 }
 
 static void PrintStrings(ParseContext *c)
 {
     String *str;
-    int dataSize = c->dataFree - c->dataBuf;
     for (str = c->strings; str != NULL; str = str->next)
-        printf("%d '%s'\n", str->offset, c->stringBuf + (str->offset - dataSize));
+        printf("%d '%s'\n", str->offset, c->dataBuf + str->offset);
 }
 
 /* LocalAlloc - allocate memory from the local heap */

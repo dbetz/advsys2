@@ -196,6 +196,8 @@ struct String {
     String *next;
     Fixup *fixups;
     int offset;
+    int size;
+    char data[1];
 };
 
 /* object list structure */
@@ -242,6 +244,7 @@ typedef struct {
     int inComment;                                  /* scan - inside of a slash/star comment */
     SymbolTable globals;                            /* parse - global symbol table */
     String *strings;                                /* parse - string constants */
+    String **pNextString;                           /* parse - place to store next string constant */
     ObjectListEntry *objects;                       /* parse - list of objects for parent/sibling/child linking */
     VMVALUE parentProperty;                         /* parse - parent property tag */
     VMVALUE siblingProperty;                        /* parse - sibling property tag */
@@ -337,6 +340,7 @@ struct ParseTreeNode {
     int nodeType;
     union {
         struct {
+            char *name;
             LocalSymbolTable arguments;
             LocalSymbolTable locals;
             int maximumTryDepth;

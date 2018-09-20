@@ -26,9 +26,9 @@ STATE_SP          = 1
 STATE_FP          = 2
 STATE_PC          = 3
 STATE_EFP         = 4
-STATE_STACK       = 5
-STATE_STACK_TOP   = 6
-STATE_STEPPING    = 7
+STATE_STEPPING    = 5
+STATE_STACK       = 6
+STATE_STACK_TOP   = 7
 _STATE_SIZE       = 8
 
 VM_Continue       = 1
@@ -135,7 +135,9 @@ DAT
         org 0
 _init
         jmp     #init2
-        
+
+' everything between here and t1, t2, t3, and t4 must remain in the same order  
+
 regs
 
 ' virtual machine registers
@@ -145,25 +147,28 @@ fp          long    0
 pc          long    0
 efp         long    0
 
+' set if single stepping
+stepping    long    0
+
+end_load_regs
+
 ' stack limits
 stack       long    0
 stackTop    long    0
 
-' set if single stepping
-stepping    long    0
-
-end_regs
+end_store_regs
 
 ' memory segment base addresses
 dbase       long    0
 cbase       long    0
-sbase       long    0
 
 ' temporary registers for NATIVE instructions
 t1          long    0
 t2          long    0
 t3          long    0
 t4          long    0
+
+' end of order dependency
         
 ' temporaries used by the VM instructions
 r1          long    0
@@ -207,11 +212,8 @@ init2   mov     r1,par
         add     r1,#8
         rdlong  cbase,r1    ' get the code space address
         add     cbase,r2
-        add     r1,#8
-        rdlong  sbase,r1    ' get the string space address
-        add     sbase,r2
-        add     r1,#8
-        rdlong  pc,r1
+        add     r1,#16      ' skip the string space address
+        rdlong  pc,r1       ' get the starting pc
         add     pc,cbase
         
         ' put the address of a halt in tos
@@ -238,7 +240,7 @@ get_command
         tjz     r1,#get_command
 
 parse_command
-        cmp     r1,#_VM_Last wc,wz ' check for valid command
+        cmp     r1,#_VM_Last wc,wz  ' check for valid command
   if_a  jmp     #err_command
         add     r1,#cmd_table-1 
         jmp     r1                  ' jump to command handler
@@ -252,24 +254,22 @@ cmd_table                           ' command dispatch table
 
 _VM_Continue
         mov     r1,state_ptr
-        movs    :rpatch, #regs
-        mov     r2,#end_regs - regs
-:rloop  rdlong  32,r1
-:rpatch mov     0-0, r3
+        movd    :rloop, #regs
+        mov     r2,#(end_load_regs - regs)
+:rloop  rdlong  0-0,r1
         add     r1,#4
-        add     :rpatch, dstinc
+        add     :rloop, dstinc
         djnz    r2,#:rloop
         jmp     #_start
 
 store_state
-        mov     r1,state_ptr
-        movs    :sloop, #regs
-        mov     r2,#end_regs - regs
-:sloop  mov     r3, 0-0
-        wrlong  r3,r1
-        add     r1,#4
-        add     :sloop, #1
-        djnz    r2,#:sloop
+        mov     r2,state_ptr    ' r1 contains the status code
+        movd    :sloop, #regs
+        mov     r3,#(end_store_regs - regs)
+:sloop  wrlong  0-0,r2
+        add     r2,#4
+        add     :sloop, dstinc
+        djnz    r3,#:sloop
 store_state_ret
         ret
 
@@ -498,20 +498,24 @@ _OP_SLIT               ' load a short literal (-128 to 127)
         jmp     #return_r1
 
 _OP_LOAD               ' load a long from memory
+        add     tos,dbase
         rdlong  tos,tos
         jmp     #_next
         
 _OP_LOADB              ' load a byte from memory
+        add     tos,dbase
         rdbyte  tos,tos
         jmp     #_next
 
 _OP_STORE              ' store a long into memory
         call    #pop_r1
+        add     r1,dbase
         wrlong  tos,r1
         jmp     #_next
         
 _OP_STOREB             ' store a byte into memory
         call    #pop_r1
+        add     r1,dbase
         wrbyte  tos,r1
         jmp     #_next
 
@@ -521,7 +525,8 @@ _OP_LADDR              ' load a local variable relative to the frame pointer
         shl     r1,#24
         sar     r1,#22
         add     r1,fp
-        jmp     #_next
+        sub     r1,dbase
+        jmp     #return_r1
         
 _OP_INDEX               ' index into a vector
         call    #pop_r1
@@ -613,6 +618,7 @@ _OP_PADDR              ' load the address of a property value
         call    #pop_r1
         mov     r2,tos
         call    #prop_addr
+        sub     r3,dbase
         mov     tos,r3 wz
   if_ne jmp     #_next
 properr mov     tos,#1
