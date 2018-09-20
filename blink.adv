@@ -1,0 +1,38 @@
+def LED1_PIN = 26;
+def LED1_MASK = 1 << LED1_PIN;
+
+def LED2_PIN = 27;
+def LED2_MASK = 1 << LED2_PIN;
+
+def LEDS_MASK = LED1_MASK | LED2_MASK;
+
+def waitcnt(n)
+{
+    asm {
+        LADDR 0
+        LOAD
+        NATIVE mov      t1, cnt
+        NATIVE add      t1, tos
+        NATIVE waitcnt  t1, #0
+        DROP
+    }
+}
+
+def main()
+{
+    // set the LED pins to outputs
+    dira |= LEDS_MASK;
+
+    // turn on LED1 and off LED2
+    outa |= LED1_MASK;
+    outa &= ~LED2_MASK;
+
+    while (1) {
+
+        // toggle both LEDs
+        outa ^= LEDS_MASK;
+
+        // wait half a second
+	waitcnt(40000000);
+    }
+}

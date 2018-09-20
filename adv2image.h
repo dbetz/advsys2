@@ -105,17 +105,8 @@ fp -> arg 1
 #define OP_THROW        0x2f    /* throw an exception */
 #define OP_NATIVE       0x30    /* execute a native instruction */
 
-/* memory segments */
-#define DATA_SEG        0   // must be 00
-#define CODE_SEG        1
-#define HUB_SEG         2
-#define COG_SEG         3   // must be 11
-
 /* memory segment base addresses */
-#define DATA_BASE       (DATA_SEG << 30)
-#define CODE_BASE	    (CODE_SEG << 30)
-#define HUB_BASE	    (HUB_SEG << 30)
-#define COG_BASE	    (COG_SEG << 30)
+#define COG_BASE	    0x80000000
 
 /* address segment offset mask */
 #define ADDR_OFF_MASK   0x3fffffff

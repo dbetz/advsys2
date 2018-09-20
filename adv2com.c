@@ -48,6 +48,23 @@ int main(int argc, char *argv[])
     AddGlobal(c, "true", SC_CONSTANT, 1);
     AddGlobal(c, "false", SC_CONSTANT, 0);
     
+    /* add the propeller registers */
+    AddSymbol(c, "par",         SC_VARIABLE, COG_BASE + 0x1f0);
+    AddSymbol(c, "cnt",         SC_VARIABLE, COG_BASE + 0x1f1);
+    AddSymbol(c, "ina",         SC_VARIABLE, COG_BASE + 0x1f2);
+    AddSymbol(c, "inb",         SC_VARIABLE, COG_BASE + 0x1f3);
+    AddSymbol(c, "outa",        SC_VARIABLE, COG_BASE + 0x1f4);
+    AddSymbol(c, "outb",        SC_VARIABLE, COG_BASE + 0x1f5);
+    AddSymbol(c, "dira",        SC_VARIABLE, COG_BASE + 0x1f6);
+    AddSymbol(c, "dirb",        SC_VARIABLE, COG_BASE + 0x1f7);
+    AddSymbol(c, "ctra",        SC_VARIABLE, COG_BASE + 0x1f8);
+    AddSymbol(c, "ctrb",        SC_VARIABLE, COG_BASE + 0x1f9);
+    AddSymbol(c, "frqa",        SC_VARIABLE, COG_BASE + 0x1fa);
+    AddSymbol(c, "frqb",        SC_VARIABLE, COG_BASE + 0x1fb);
+    AddSymbol(c, "phsa",        SC_VARIABLE, COG_BASE + 0x1fc);
+    AddSymbol(c, "phsb",        SC_VARIABLE, COG_BASE + 0x1fd);
+    AddSymbol(c, "vcfg",        SC_VARIABLE, COG_BASE + 0x1fe);
+    AddSymbol(c, "vscl",        SC_VARIABLE, COG_BASE + 0x1ff);
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
 

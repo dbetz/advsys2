@@ -177,6 +177,12 @@ r3          long    0
 r4          long    0
 r5          long    0
 
+' value to add to an instruction to increment the dst address
+dstinc      long    $200
+
+' base address of COG memory
+cog_start   long    COG_BASE
+
         ' prepare to parse the initialization parameters
 init2   mov     r1,par
 
@@ -272,8 +278,6 @@ store_state
         djnz    r3,#:sloop
 store_state_ret
         ret
-
-dstinc  long    $200
 
 return_r1
         mov     tos,r1
@@ -498,8 +502,16 @@ _OP_SLIT               ' load a short literal (-128 to 127)
         jmp     #return_r1
 
 _OP_LOAD               ' load a long from memory
+        cmp     tos,cog_start wc    ' check for COG memory access
+  if_nc jmp     #:load_cog
         add     tos,dbase
         rdlong  tos,tos
+        jmp     #_next
+
+:load_cog
+        movs    :rcog,tos
+        nop
+:rcog   mov     tos,0-0
         jmp     #_next
         
 _OP_LOADB              ' load a byte from memory
@@ -509,8 +521,16 @@ _OP_LOADB              ' load a byte from memory
 
 _OP_STORE              ' store a long into memory
         call    #pop_r1
+        cmp     r1,cog_start wc    ' check for COG memory access
+  if_nc jmp     #:store_cog
         add     r1,dbase
         wrlong  tos,r1
+        jmp     #_next
+        
+:store_cog
+        movd    :wcog,r1
+        nop
+:wcog   mov     0-0,tos
         jmp     #_next
         
 _OP_STOREB             ' store a byte into memory
