@@ -44,6 +44,7 @@ OTDEF OpcodeTable[] = {
 { OP_STOREB,    "STOREB",   FMT_NONE    },
 { OP_LADDR,     "LADDR",    FMT_SBYTE   },
 { OP_INDEX,     "INDEX",    FMT_NONE    },
+{ OP_BINDEX,    "BINDEX",   FMT_NONE    },
 { OP_CALL,      "CALL",     FMT_BYTE    },
 { OP_FRAME,     "FRAME",    FMT_BYTE    },
 { OP_RETURN,    "RETURN",   FMT_NONE    },

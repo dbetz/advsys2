@@ -252,6 +252,10 @@ int Execute(ImageHdr *image, int debug)
             tmp = Pop(i);
             i->tos = tmp + i->tos * sizeof (VMVALUE);
             break;
+        case OP_BINDEX:
+            tmp = Pop(i);
+            i->tos = tmp + i->tos;
+            break;
         case OP_CALL:
             ++i->pc; // skip over the argument count
             tmp = i->tos;

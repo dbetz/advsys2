@@ -56,7 +56,7 @@ static ParseTreeNode *ParseExpr11(ParseContext *c);
 static ParseTreeNode *ParsePrimary(ParseContext *c);
 static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name);
 static ParseTreeNode *ParseSimplePrimary(ParseContext *c);
-static ParseTreeNode *ParseArrayReference(ParseContext *c, ParseTreeNode *arrayNode);
+static ParseTreeNode *ParseArrayReference(ParseContext *c, ParseTreeNode *arrayNode, PvType type);
 static ParseTreeNode *ParseCall(ParseContext *c, ParseTreeNode *functionNode);
 static ParseTreeNode *ParseSend(ParseContext *c);
 static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object);
@@ -1515,7 +1515,7 @@ static ParseTreeNode *ParsePrimary(ParseContext *c)
     while ((tkn = GetToken(c)) == '[' || tkn == '(' || tkn == '.' || tkn == T_INC || tkn == T_DEC) {
         switch (tkn) {
         case '[':
-            node = ParseArrayReference(c, node);
+            node = ParseArrayReference(c, node, PVT_LONG);
             break;
         case '(':
             node = ParseCall(c, node);
@@ -1542,17 +1542,12 @@ static ParseTreeNode *ParsePrimary(ParseContext *c)
 }
 
 /* ParseArrayReference - parse an array reference */
-static ParseTreeNode *ParseArrayReference(ParseContext *c, ParseTreeNode *arrayNode)
+static ParseTreeNode *ParseArrayReference(ParseContext *c, ParseTreeNode *arrayNode, PvType type)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeArrayRef);
-
-    /* setup the array reference */
     node->u.arrayRef.array = arrayNode;
-
-    /* get the index expression */
     node->u.arrayRef.index = ParseExpr(c);
-
-    /* check for the close bracket */
+    node->u.arrayRef.type = type;
     FRequire(c, ']');
     return node;
 }
@@ -1668,6 +1663,10 @@ static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object)
         node->u.propertyRef.object = object;
         node->u.propertyRef.property = ParseExpr(c);
         FRequire(c, ')');
+    }
+    else if (tkn == T_BYTE) {
+        FRequire(c, '[');
+        node = ParseArrayReference(c, object, PVT_BYTE);
     }
     else {
         ParseError(c, "expecting 'class', a property name, or a parenthesized expression");

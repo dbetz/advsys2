@@ -31,6 +31,8 @@ static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_rvalue(ParseContext *c, ParseTreeNode *expr);
+static void code_dataref(ParseContext *c, PvFcn fcn, PVAL *pv);
+static void code_localref(ParseContext *c, PvFcn fcn, PVAL *pv);
 static void rvalue(ParseContext *c, PVAL *pv);
 static void chklvalue(ParseContext *c, PVAL *pv);
 static void PushBlock(ParseContext *c, Block *block, BlockType type);
@@ -347,18 +349,18 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     case NodeTypeLocalSymbolRef:
         putcbyte(c, OP_LADDR);
         putcbyte(c, -expr->u.localSymbolRef.symbol->offset - 1);
-        *pv = VT_LVALUE;
+        pv->fcn = code_localref;
         break;
     case NodeTypeArgumentRef:
         putcbyte(c, OP_LADDR);
         putcbyte(c, expr->u.localSymbolRef.symbol->offset);
-        *pv = VT_LVALUE;
+        pv->fcn = code_localref;
         break;
     case NodeTypeStringLit:
         putcbyte(c, OP_LIT);
         offset = putclong(c, 0);
         AddStringRef(c, expr->u.stringLit.string, FT_CODE, offset);
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeIntegerLit:
         ival = expr->u.integerLit.value;
@@ -370,34 +372,34 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
             putcbyte(c, OP_LIT);
             putclong(c, ival);
         }
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeFunctionLit:
         putcbyte(c, OP_LIT);
         putclong(c, expr->u.functionLit.offset);
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypePreincrementOp:
         code_lvalue(c, expr->u.incrementOp.expr, &pv2);
         putcbyte(c, OP_DUP);
-        putcbyte(c, OP_LOAD);
+        (*pv2.fcn)(c, PVF_LOAD, &pv2);
         putcbyte(c, OP_SLIT);
         putcbyte(c, expr->u.incrementOp.increment);
         putcbyte(c, OP_ADD);
-        putcbyte(c, OP_STORE);
-        *pv = VT_RVALUE;
+        (*pv2.fcn)(c, PVF_STORE, &pv2);
+        pv->fcn = NULL;
         break;
     case NodeTypePostincrementOp:
         code_lvalue(c, expr->u.incrementOp.expr, &pv2);
         putcbyte(c, OP_DUP);
-        putcbyte(c, OP_LOAD);
+        (*pv2.fcn)(c, PVF_LOAD, &pv2);
         putcbyte(c, OP_TUCK);
         putcbyte(c, OP_SLIT);
         putcbyte(c, expr->u.incrementOp.increment);
         putcbyte(c, OP_ADD);
-        putcbyte(c, OP_STORE);
+        (*pv2.fcn)(c, PVF_STORE, &pv2);
         putcbyte(c, OP_DROP);
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeCommaOp:
         code_rvalue(c, expr->u.commaOp.left);
@@ -408,12 +410,12 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         code_rvalue(c, expr->u.binaryOp.left);
         code_rvalue(c, expr->u.binaryOp.right);
         putcbyte(c, expr->u.binaryOp.op);
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeUnaryOp:
         code_rvalue(c, expr->u.unaryOp.expr);
         putcbyte(c, expr->u.unaryOp.op);
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeTernaryOp:
         code_ternary(c, expr, pv);
@@ -422,17 +424,17 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
         if (expr->u.binaryOp.op == OP_EQ) {
             code_lvalue(c, expr->u.binaryOp.left, &pv2);
             code_rvalue(c, expr->u.binaryOp.right);
-            putcbyte(c, OP_STORE);
+            (*pv2.fcn)(c, PVF_STORE, &pv2);
         }
         else {
             code_lvalue(c, expr->u.binaryOp.left, &pv2);
             putcbyte(c, OP_DUP);
-            putcbyte(c, OP_LOAD);
+            (*pv2.fcn)(c, PVF_LOAD, &pv2);
             code_rvalue(c, expr->u.binaryOp.right);
             putcbyte(c, expr->u.binaryOp.op);
-            putcbyte(c, OP_STORE);
+            (*pv2.fcn)(c, PVF_STORE, &pv2);
         }
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     case NodeTypeArrayRef:
         code_arrayref(c, expr, pv);
@@ -472,7 +474,7 @@ static void code_ternary(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     fixupbranch(c, nxt, codeaddr(c));
     code_rvalue(c, expr->u.ternaryOp.elseExpr);
     fixupbranch(c, end, codeaddr(c));
-    *pv = VT_RVALUE;
+    pv->fcn = NULL;
 }
 
 /* code_symbolref - generate code for a symbol reference */
@@ -483,13 +485,14 @@ static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     case SC_VARIABLE:
         putcbyte(c, OP_LIT);
         putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
-        *pv = VT_LVALUE;
+        pv->fcn = code_dataref;
+        pv->type = PVT_LONG;
         break;
     case SC_OBJECT:
     case SC_FUNCTION:
         putcbyte(c, OP_LIT);
         putclong(c, AddSymbolRef(c, symbol, FT_CODE, codeaddr(c)));
-        *pv = VT_RVALUE;
+        pv->fcn = NULL;
         break;
     default:
         break;
@@ -513,7 +516,7 @@ static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL
 
     fixupbranch(c, end, codeaddr(c));
 
-    *pv = VT_RVALUE;
+    pv->fcn = NULL;
 }
 
 /* code_arrayref - code an array reference */
@@ -526,9 +529,17 @@ static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     code_rvalue(c, expr->u.arrayRef.index);
 
     /* code the index operation */
-    putcbyte(c, OP_INDEX);
+    switch (expr->u.arrayRef.type) {
+    case PVT_LONG:
+        putcbyte(c, OP_INDEX);
+        break;
+    case PVT_BYTE:
+        putcbyte(c, OP_BINDEX);
+        break;
+    }
 
-    *pv = VT_LVALUE;
+    pv->fcn = code_dataref;
+    pv->type = expr->u.arrayRef.type;
 }
 
 /* code_arguments - code function arguments (in reverse order) */
@@ -553,7 +564,7 @@ static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     putcbyte(c, expr->u.functionCall.argc);
 
     /* we've got an rvalue now */
-    *pv = VT_RVALUE;
+    pv->fcn = NULL;
 }
 
 /* code_send - code a message send */
@@ -583,7 +594,7 @@ static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     putcbyte(c, expr->u.send.argc + 2);
 
     /* we've got an rvalue now */
-    *pv = VT_RVALUE;
+    pv->fcn = NULL;
 }
 
 /* code_classref - code a class reference */
@@ -591,7 +602,7 @@ static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
     code_rvalue(c, expr->u.propertyRef.object);
     putcbyte(c, OP_CLASS);
-    *pv = VT_RVALUE;
+    pv->fcn = NULL;
 }
 
 /* code_propertyref - code a property reference */
@@ -600,22 +611,63 @@ static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     code_rvalue(c, expr->u.propertyRef.object);
     code_rvalue(c, expr->u.propertyRef.property);
     putcbyte(c, OP_PADDR);
-    *pv = VT_LVALUE;
+    pv->fcn = code_dataref;
+    pv->type = PVT_LONG;
+}
+
+/* code_dataref - compile a data reference */
+static void code_dataref(ParseContext *c, PvFcn fcn, PVAL *pv)
+{
+    switch (fcn) {
+    case PVF_LOAD:
+        switch (pv->type) {
+        case PVT_LONG:
+            putcbyte(c, OP_LOAD);
+            break;
+        case PVT_BYTE:
+            putcbyte(c, OP_LOADB);
+            break;
+        }
+        break;
+    case PVF_STORE:
+        switch (pv->type) {
+        case PVT_LONG:
+            putcbyte(c, OP_STORE);
+            break;
+        case PVT_BYTE:
+            putcbyte(c, OP_STOREB);
+            break;
+        }
+        break;
+    }
+}
+
+/* code_localref - compile a local reference */
+static void code_localref(ParseContext *c, PvFcn fcn, PVAL *pv)
+{
+    switch (fcn) {
+    case PVF_LOAD:
+        putcbyte(c, OP_LOAD);
+        break;
+    case PVF_STORE:
+        putcbyte(c, OP_STORE);
+        break;
+    }
 }
 
 /* rvalue - get the rvalue of a partial expression */
 static void rvalue(ParseContext *c, PVAL *pv)
 {
-    if (*pv == VT_LVALUE) {
-        putcbyte(c, OP_LOAD);
-        *pv = VT_RVALUE;
+    if (pv->fcn) {
+        (*pv->fcn)(c, PVF_LOAD, pv);
+        pv->fcn = NULL;
     }
 }
 
 /* chklvalue - make sure we've got an lvalue */
 static void chklvalue(ParseContext *c, PVAL *pv)
 {
-    if (*pv == VT_RVALUE)
+    if (pv->fcn == NULL)
         ParseError(c,"expecting an lvalue");
 }
 

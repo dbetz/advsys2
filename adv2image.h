@@ -88,22 +88,23 @@ fp -> arg 1
 #define OP_STOREB       0x1e    /* store a byte into memory */
 #define OP_LADDR        0x1f    /* load the address of a local variable */
 #define OP_INDEX        0x20    /* index into a vector of longs */
-#define OP_CALL         0x21    /* call a function */
-#define OP_FRAME        0x22    /* create a stack frame */
-#define OP_RETURN       0x23    /* remove a stack frame and return from a function call */
-#define OP_RETURNZ      0x24    /* remove a stack frame and return from a function call */
-#define OP_DROP         0x25    /* drop the top element of the stack */
-#define OP_DUP          0x26    /* duplicate the top element of the stack */
-#define OP_TUCK         0x27    /* a b -> b a b */
-#define OP_SWAP         0x28    /* swap the top two elements on the stack */
-#define OP_TRAP         0x29    /* trap to handler */
-#define OP_SEND         0x2a    /* send a message to an object */
-#define OP_PADDR        0x2b    /* load the address of an object property */
-#define OP_CLASS        0x2c    /* load the class of an object */
-#define OP_TRY          0x2d    /* enter try code */
-#define OP_TRYEXIT      0x2e    /* exit try code */
-#define OP_THROW        0x2f    /* throw an exception */
-#define OP_NATIVE       0x30    /* execute a native instruction */
+#define OP_BINDEX       0x21    /* index into a vector of bytes */
+#define OP_CALL         0x22    /* call a function */
+#define OP_FRAME        0x23    /* create a stack frame */
+#define OP_RETURN       0x24    /* remove a stack frame and return from a function call */
+#define OP_RETURNZ      0x25    /* remove a stack frame and return from a function call */
+#define OP_DROP         0x26    /* drop the top element of the stack */
+#define OP_DUP          0x27    /* duplicate the top element of the stack */
+#define OP_TUCK         0x28    /* a b -> b a b */
+#define OP_SWAP         0x29    /* swap the top two elements on the stack */
+#define OP_TRAP         0x2a    /* trap to handler */
+#define OP_SEND         0x2b    /* send a message to an object */
+#define OP_PADDR        0x2c    /* load the address of an object property */
+#define OP_CLASS        0x2d    /* load the class of an object */
+#define OP_TRY          0x2e    /* enter try code */
+#define OP_TRYEXIT      0x2f    /* exit try code */
+#define OP_THROW        0x30    /* throw an exception */
+#define OP_NATIVE       0x31    /* execute a native instruction */
 
 /* memory segment base addresses */
 #define COG_BASE	    0x80000000

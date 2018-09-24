@@ -50,6 +50,7 @@ enum {
     T_CATCH,
     T_FINALLY,
     T_THROW,
+    T_BYTE,
     T_ASM,
     T_PRINT,
     T_PRINTLN,
@@ -270,16 +271,24 @@ typedef struct {
     int debugMode;                                  /* debug mode flag */
 } ParseContext;
 
-/* partial value type codes */
-typedef enum {
-    VT_RVALUE,
-    VT_LVALUE
-} PVAL;
-
 /* partial value function codes */
-enum {
-    PV_LOAD,
-    PV_STORE
+typedef enum {
+    PVF_LOAD,
+    PVF_STORE
+} PvFcn;
+
+/* partial value typess */
+typedef enum {
+    PVT_LONG,
+    PVT_BYTE
+} PvType;
+
+/* partial value structure */
+typedef struct PVAL PVAL;
+struct PVAL {
+    void (*fcn)(ParseContext *c, PvFcn fcn, PVAL *pv);
+    PvType type;
+    VMVALUE val;
 };
 
 /* parse tree node types */
@@ -430,6 +439,7 @@ struct ParseTreeNode {
         struct {
             ParseTreeNode *array;
             ParseTreeNode *index;
+            PvType type;
         } arrayRef;
         struct {
             ParseTreeNode *fcn;

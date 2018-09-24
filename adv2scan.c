@@ -40,6 +40,7 @@ static struct {
 {   "catch",    T_CATCH     },
 {   "finally",  T_FINALLY   },
 {   "throw",    T_THROW     },
+{   "byte",     T_BYTE      },
 {   "asm",      T_ASM       },
 {   "print",    T_PRINT     },
 {   "println",  T_PRINTLN   },

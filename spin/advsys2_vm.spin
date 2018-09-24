@@ -87,24 +87,25 @@ OP_LOADB        = $1c    ' load a byte from memory
 OP_STORE        = $1d    ' store a long in memory
 OP_STOREB       = $1e    ' store a byte in memory
 OP_LADDR        = $1f    ' load the address of a local variable
-OP_INDEX        = $20    ' index into a vector
-OP_CALL         = $21    ' call a function */
-OP_FRAME        = $22    ' create a stack frame */
-OP_RETURN       = $23    ' from a function */
-OP_RETURNZ      = $24    ' from a function */
-OP_DROP         = $25    ' drop the top element of the stack
-OP_DUP          = $26    ' duplicate the top element of the stack
-OP_TUCK         = $27    ' a b -> b a b
-OP_SWAP         = $28    ' swap the top to elements of the stack
-OP_TRAP         = $29    ' invoke a trap handler
-OP_SEND         = $2a    ' send a message to an object
-OP_PADDR        = $2b    ' load the address of a property value
-OP_CLASS        = $2c    ' get the class of an object
-OP_TRY          = $2d    ' enter a try block
-OP_TRYEXIT      = $2e    ' exit a try block
-OP_THROW        = $2f    ' throw an exception
-OP_NATIVE       = $30    ' execute a native instruction
-OP_LAST         = $30
+OP_INDEX        = $20    ' index into a vector of longs
+OP_BINDEX       = $21    ' index into a vector of bytes
+OP_CALL         = $22    ' call a function */
+OP_FRAME        = $23    ' create a stack frame */
+OP_RETURN       = $24    ' from a function */
+OP_RETURNZ      = $25    ' from a function */
+OP_DROP         = $26    ' drop the top element of the stack
+OP_DUP          = $27    ' duplicate the top element of the stack
+OP_TUCK         = $28    ' a b -> b a b
+OP_SWAP         = $29    ' swap the top to elements of the stack
+OP_TRAP         = $2a    ' invoke a trap handler
+OP_SEND         = $2b    ' send a message to an object
+OP_PADDR        = $2c    ' load the address of a property value
+OP_CLASS        = $2d    ' get the class of an object
+OP_TRY          = $2e    ' enter a try block
+OP_TRYEXIT      = $2f    ' exit a try block
+OP_THROW        = $30    ' throw an exception
+OP_NATIVE       = $31    ' execute a native instruction
+OP_LAST         = $31
 
 DIV_OP          = 0
 REM_OP          = 1
@@ -329,7 +330,8 @@ opcode_table                            ' opcode dispatch table
         jmp     #_OP_STORE              ' store a long into memory
         jmp     #_OP_STOREB             ' store a byte into memory
         jmp     #_OP_LADDR              ' load the address of a local variable
-        jmp     #_OP_INDEX              ' index into a vector
+        jmp     #_OP_INDEX              ' index into a vector of longs
+        jmp     #_OP_BINDEX             ' index into a vector of bytes
         jmp     #_OP_CALL               ' call a function
         jmp     #_OP_FRAME              ' push a frame onto the stack
         jmp     #_OP_RETURN             ' return from a function
@@ -549,8 +551,9 @@ _OP_LADDR              ' load a local variable relative to the frame pointer
         jmp     #return_r1
         
 _OP_INDEX               ' index into a vector
-        call    #pop_r1
         shl     tos,#2
+_OP_BINDEX
+        call    #pop_r1
         add     tos,r1
         jmp     #_next
         
