@@ -20,7 +20,7 @@ CON
   
 PUB start
   runtime.init_serial(p_baudrate, p_rxpin, p_txpin)
-  runtime.init(vm_mbox, vm_state, vm_stack, vm_stack_size, @image)
+  runtime.init(vm_mbox, vm_state, vm_stack, vm_stack_size, p_image)
   waitcnt(clkfreq+cnt) ' this is a hack!
   'runtime.show_state(vm_state)
   runtime.run(vm_mbox, vm_state)
@@ -33,6 +33,3 @@ p_baudrate          long    115200
 p_rxpin             byte    31
 p_txpin             byte    30
 p_image             word    0
-
-                    long
-image               file    "advsys2.dat"

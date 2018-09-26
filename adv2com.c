@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
     AddSymbol(c, "phsb",        SC_VARIABLE, COG_BASE + 0x1fd);
     AddSymbol(c, "vcfg",        SC_VARIABLE, COG_BASE + 0x1fe);
     AddSymbol(c, "vscl",        SC_VARIABLE, COG_BASE + 0x1ff);
+    
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
 

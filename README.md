@@ -132,6 +132,7 @@ expr--
 function()
 function ( arg [, arg ]... )
 array [ index ]
+array.byte [ index ]
 
 (expr)
 var
