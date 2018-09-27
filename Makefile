@@ -12,8 +12,8 @@ EXT=
 OSINT=osint_linux
 endif
 
-SRCDIR=.
-HDRDIR=.
+SRCDIR=src
+HDRDIR=src
 SPINDIR=spin
 TOOLSDIR=tools
 OBJDIR=obj
@@ -60,19 +60,23 @@ $(OBJDIR)/wordfire_template.o
 all:	$(DIRS) bin2c adv2com adv2int propbinary
 
 game:    adv2int game.dat
-	./adv2int game.dat
+	$(BINDIR)/adv2int game.dat
 
 gamed:    adv2int game.dat
-	./adv2int -d game.dat
+	$(BINDIR)/adv2int -d game.dat
 
 %.dat:	%.adv game.adi adv2com
-	./adv2com $<
+	$(BINDIR)/adv2com $<
 	
 $(COMOBJS):	$(COMHDRS)
 
 $(INTOBJS):	$(INTHDRS)
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(HDRS)
+	@$(CC) $(CFLAGS) -c $< -o $@
+	@$(ECHO) $@
+
+$(OBJDIR)/%.o:	$(TOOLSDIR)/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 	@$(ECHO) $@
 
@@ -84,27 +88,36 @@ $(OBJDIR)/%.c:	$(OBJDIR)/%.binary
 	@$(BINDIR)/bin2c$(EXT) $< $@
 	@$(ECHO) $@
 
-adv2com$(EXT):	$(COMOBJS)
-	@$(CC) $(CFLAGS) $(LDFLAGS)  $(CFLAGS) -o $@ $(COMOBJS)
+.PHONY:	adv2com
+adv2com:		$(BINDIR)/adv2com$(EXT)
+
+$(BINDIR)/adv2com$(EXT):	$(COMOBJS)
+	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(COMOBJS)
 	@$(ECHO) $@
 
-adv2int$(EXT):	$(INTOBJS)
-	@$(CC) $(CFLAGS) $(LDFLAGS)  $(CFLAGS) -o $@ $(INTOBJS)
+.PHONY:	adv2int
+adv2int:		$(BINDIR)/adv2int$(EXT)
+
+$(BINDIR)/adv2int$(EXT):	$(INTOBJS)
+	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(INTOBJS)
 	@$(ECHO) $@
 
-propbinary$(EXT):	$(PROPBINARYOBJS)
-	@$(CC) $(CFLAGS) $(LDFLAGS)  $(CFLAGS) -o $@ $(PROPBINARYOBJS)
+.PHONY:	propbinary
+propbinary:		$(BINDIR)/propbinary$(EXT)
+
+$(BINDIR)/propbinary$(EXT):	$(PROPBINARYOBJS)
+	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PROPBINARYOBJS)
 	@$(ECHO) $@
 
 .PHONY:	bin2c
 bin2c:		$(BINDIR)/bin2c$(EXT)
 
 $(BINDIR)/bin2c$(EXT):	$(OBJDIR) $(TOOLSDIR)/bin2c.c
-	@$(CC) $(CFLAGS) $(LDFLAGS) $(TOOLSDIR)/bin2c.c -o $@
+	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(TOOLSDIR)/bin2c.c
 	@$(ECHO) $@
 
 $(DIRS):
 	$(MKDIR) $@
 
 clean:
-	rm -r -f obj bin adv2com adv2int propbinary *.dat *.binary
+	rm -r -f obj bin *.dat *.binary

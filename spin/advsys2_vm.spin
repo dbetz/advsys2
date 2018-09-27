@@ -547,7 +547,7 @@ _OP_LADDR              ' load a local variable relative to the frame pointer
         shl     r1,#24
         sar     r1,#22
         add     r1,fp
-        sub     r1,dbase
+        sub     r1,dbase ' this is added back on by LOAD/STORE
         jmp     #return_r1
         
 _OP_INDEX               ' index into a vector
