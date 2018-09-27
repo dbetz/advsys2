@@ -10,9 +10,6 @@
 #include <stdint.h>
 #include <string.h>
 
-/* target checksum for a binary file */
-#define SPIN_TARGET_CHECKSUM    0x14
-
 /* spin binary file header structure */
 typedef struct {
     uint32_t    clkfreq;
@@ -48,6 +45,7 @@ extern uint8_t advsys2_step_template_array[];
 extern int advsys2_step_template_size;
 
 static void Usage(void);
+static uint8_t *BuildBinary(uint8_t *template, int templateSize, uint8_t *image, int imageSize, int *pBinarySize);
 static void UpdateChecksum(uint8_t *binary, int size);
 static uint8_t *ReadEntireFile(char *name, int *pSize);
 static void DumpSpinBinary(uint8_t *binary);
@@ -56,14 +54,12 @@ static void DumpSpinBinary(uint8_t *binary);
 int main(int argc, char *argv[])
 {
     uint8_t *template, *binary, *image;
-    int templateSize, binarySize, imageSize, paddedImageSize, i;
+    int templateSize, binarySize, imageSize, i;
     char outputFileBuf[100], *p;
     char *inputFile = NULL;
     char *outputFile = NULL;
     int debugMode = 0;
-    SpinHdr *hdr;
-    SpinObj *obj;
-    DatHdr *dat;
+    FILE *fp;
     
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
@@ -113,33 +109,22 @@ int main(int argc, char *argv[])
     template = advsys2_run_template_array;
     templateSize = advsys2_run_template_size;
     
-    image = ReadEntireFile(inputFile, &imageSize);
-    paddedImageSize = (imageSize + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1); 
+    if (!(image = ReadEntireFile(inputFile, &imageSize))) {
+        printf("error: reading image '%s'\n", inputFile);
+        return 1;
+    }
     
-    binarySize = templateSize + paddedImageSize;
-    if (!(binary = (uint8_t *)malloc(binarySize))) {
+    if (!(binary = BuildBinary(template, templateSize, image, imageSize, &binarySize))) {
         printf("error: insufficient memory\n");
         return 1;
     }
     
-    memset(binary, 0, binarySize);
-    memcpy(binary, template, templateSize);
-    
-    hdr =  (SpinHdr *)binary;
-    obj =  (SpinObj *)(binary + hdr->pbase);
-    dat =  (DatHdr *)((uint8_t *)obj + (obj->pubcnt + obj->objcnt) * sizeof(uint32_t));
-    dat->imagebase = hdr->vbase;
-    memcpy(binary + hdr->vbase, image, imageSize);
-    hdr->vbase += paddedImageSize;
-    hdr->dbase += paddedImageSize;
-    hdr->dcurr += paddedImageSize;
-    UpdateChecksum(binary, binarySize);
-    
-    {
-        FILE *fp = fopen(outputFile, "wb");
-        fwrite(binary, binarySize, 1, fp);
-        fclose(fp);
+    if (!(fp = fopen(outputFile, "wb"))) {
+        printf("error: can't create '%s'\n", outputFile);
+        return 1;
     }
+    fwrite(binary, binarySize, 1, fp);
+    fclose(fp);
         
     if (debugMode) {
         printf("\nTemplate:\n");
@@ -157,6 +142,50 @@ static void Usage(void)
     printf("usage: propbinary [ -d ] [ -o <output-file> ] <input-file>\n");
     exit(1);
 }
+
+/* BuildBinary - build a .binary file from a template and a VM image */
+static uint8_t *BuildBinary(uint8_t *template, int templateSize, uint8_t *image, int imageSize, int *pBinarySize)
+{
+    int binarySize, paddedImageSize;
+    uint8_t *binary;
+    SpinHdr *hdr;
+    SpinObj *obj;
+    DatHdr *dat;
+    
+    /* pad the image to a long boundary */
+    paddedImageSize = (imageSize + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1); 
+    
+    /* compute the size of the binary file including the image */
+    binarySize = templateSize + paddedImageSize;
+    
+    /* allocate space for the binary file */
+    if (!(binary = (uint8_t *)malloc(binarySize))) {
+        printf("error: insufficient memory\n");
+        return NULL;
+    }
+    memset(binary, 0, binarySize);
+    
+    /* copy the template to the start of the file */
+    memcpy(binary, template, templateSize);
+    
+    /* update the binary file header to include the VM image */
+    hdr =  (SpinHdr *)binary;
+    obj =  (SpinObj *)(binary + hdr->pbase);
+    dat =  (DatHdr *)((uint8_t *)obj + (obj->pubcnt + obj->objcnt) * sizeof(uint32_t));
+    dat->imagebase = hdr->vbase;
+    memcpy(binary + hdr->vbase, image, imageSize);
+    hdr->vbase += paddedImageSize;
+    hdr->dbase += paddedImageSize;
+    hdr->dcurr += paddedImageSize;
+    UpdateChecksum(binary, binarySize);
+    
+    /* return the binary */
+    *pBinarySize = binarySize;
+    return binary;
+}
+
+/* target checksum for a binary file */
+#define SPIN_TARGET_CHECKSUM    0x14
 
 /* UpdateChecksum - recompute the checksum */
 static void UpdateChecksum(uint8_t *binary, int size)
