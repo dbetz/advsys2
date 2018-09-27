@@ -1,6 +1,6 @@
 OBJ
 
-  runtime : "vm_runtime"
+  runtime : "wordfire_runtime"
 
 CON
 
@@ -19,7 +19,7 @@ CON
   vm_stack = vm_state - vm_stack_size
   
 PUB start
-  runtime.init_serial(p_baudrate, p_rxpin, p_txpin)
+  runtime.init_video_and_keyboard
   runtime.init(vm_mbox, vm_state, vm_stack, vm_stack_size, p_image)
   waitcnt(clkfreq+cnt) ' this is a hack!
   'runtime.show_state(vm_state)
@@ -30,6 +30,3 @@ DAT
 
 ' parameters filled in before downloading
 p_image             word    0
-p_baudrate          long    115200
-p_rxpin             byte    31
-p_txpin             byte    30

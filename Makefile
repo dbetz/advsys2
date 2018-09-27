@@ -54,7 +54,8 @@ $(HDRDIR)/adv2vmdebug.h
 PROPBINARYOBJS = \
 $(OBJDIR)/propbinary.o \
 $(OBJDIR)/advsys2_run_template.o \
-$(OBJDIR)/advsys2_step_template.o
+$(OBJDIR)/advsys2_step_template.o \
+$(OBJDIR)/wordfire_template.o
 
 all:	$(DIRS) bin2c adv2com adv2int propbinary
 

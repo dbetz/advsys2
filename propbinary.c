@@ -33,16 +33,18 @@ typedef struct {
 
 /* DAT header in serial_helper.spin */
 typedef struct {
+    uint16_t imagebase;
     uint32_t baudrate;
     uint8_t rxpin;
     uint8_t txpin;
-    uint16_t imagebase;
 } DatHdr;
 
 extern uint8_t advsys2_run_template_array[];
 extern int advsys2_run_template_size;
 extern uint8_t advsys2_step_template_array[];
 extern int advsys2_step_template_size;
+extern uint8_t wordfire_template_array[];
+extern int wordfire_template_size;
 
 static void Usage(void);
 static uint8_t *BuildBinary(uint8_t *template, int templateSize, uint8_t *image, int imageSize, int *pBinarySize);
@@ -58,6 +60,7 @@ int main(int argc, char *argv[])
     char outputFileBuf[100], *p;
     char *inputFile = NULL;
     char *outputFile = NULL;
+    char *templateName = "run";
     int debugMode = 0;
     FILE *fp;
     
@@ -75,6 +78,14 @@ int main(int argc, char *argv[])
                     outputFile = &argv[i][2];
                 else if(++i < argc)
                     outputFile = argv[i];
+                else
+                    Usage();
+                break;
+            case 't':
+                if(argv[i][2])
+                    templateName = &argv[i][2];
+                else if(++i < argc)
+                    templateName = argv[i];
                 else
                     Usage();
                 break;
@@ -106,8 +117,22 @@ int main(int argc, char *argv[])
         outputFile = outputFileBuf;
     }
     
-    template = advsys2_run_template_array;
-    templateSize = advsys2_run_template_size;
+    if (strcmp(templateName, "run") == 0) {
+        template = advsys2_run_template_array;
+        templateSize = advsys2_run_template_size;
+    }
+    else if (strcmp(templateName, "step") == 0) {
+        template = advsys2_step_template_array;
+        templateSize = advsys2_step_template_size;
+    }
+    else if (strcmp(templateName, "wordfire") == 0) {
+        template = wordfire_template_array;
+        templateSize = wordfire_template_size;
+    }
+    else {
+        printf("error: unknown template name '%s'\n", templateName);
+        return 1;
+    }
     
     if (!(image = ReadEntireFile(inputFile, &imageSize))) {
         printf("error: reading image '%s'\n", inputFile);
@@ -139,7 +164,7 @@ int main(int argc, char *argv[])
 /* Usage - display a usage message and exit */
 static void Usage(void)
 {
-    printf("usage: propbinary [ -d ] [ -o <output-file> ] <input-file>\n");
+    printf("usage: propbinary [ -d ] [ -o <output-file> ] [ -t <template-name> ] <input-file>\n");
     exit(1);
 }
 
@@ -159,10 +184,8 @@ static uint8_t *BuildBinary(uint8_t *template, int templateSize, uint8_t *image,
     binarySize = templateSize + paddedImageSize;
     
     /* allocate space for the binary file */
-    if (!(binary = (uint8_t *)malloc(binarySize))) {
-        printf("error: insufficient memory\n");
+    if (!(binary = (uint8_t *)malloc(binarySize)))
         return NULL;
-    }
     memset(binary, 0, binarySize);
     
     /* copy the template to the start of the file */

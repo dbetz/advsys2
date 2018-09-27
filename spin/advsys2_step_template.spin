@@ -28,8 +28,8 @@ PUB start
 
 DAT
 
-' parameters filled in before downloading hub_loader.binary
+' parameters filled in before downloading
+p_image             word    0
 p_baudrate          long    115200
 p_rxpin             byte    31
 p_txpin             byte    30
-p_image             word    0
