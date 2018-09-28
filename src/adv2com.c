@@ -212,7 +212,9 @@ int main(int argc, char *argv[])
   
 static void Usage(void)
 {
-    printf("usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] <input-file>\n");
+    printf("\
+usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] <input-file>\n\
+       templates: run, step, wordfire\n");
     exit(1);
 }
 
