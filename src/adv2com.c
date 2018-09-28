@@ -246,6 +246,7 @@ static uint8_t *BuildImage(ParseContext *c, int *pSize)
         ParseError(c, "expecting 'main' to be a function");
     hdr->mainFunction = sym->v.value;
     
+    *pSize = imageSize;
     return (uint8_t *)hdr;
 }
 
