@@ -439,13 +439,13 @@ static void ShowOffset(Interpreter *i, VMVALUE value)
 {
     uint8_t *p = (uint8_t *)value;
     if (p >= i->dataBase && p < i->dataTop)
-        printf("(d:%d)", p - i->dataBase);
+        printf("(d:%d)", (int)(p - i->dataBase));
     else if (p >= i->codeBase && p < i->codeTop)
-        printf("(c:%d-%x)", p - i->codeBase, p - i->codeBase);
+        printf("(c:%d-%x)", (int)(p - i->codeBase), (int)(p - i->codeBase));
     else if (p >= i->stringBase && p < i->stringTop)
-        printf("(s:%d)", p - i->stringBase);
+        printf("(s:%d)", (int)(p - i->stringBase));
     else if ((VMVALUE *)p >= i->stack && (VMVALUE *)p < i->stackTop)
-        printf("(%d)", (VMVALUE *)p - i->stack);
+        printf("(%d)", (int)((VMVALUE *)p - i->stack));
     else if ((VMVALUE *)p == i->stackTop)
         printf("(top)");
 }
@@ -453,7 +453,7 @@ static void ShowOffset(Interpreter *i, VMVALUE value)
 static void ShowStack(Interpreter *i)
 {
     VMVALUE *p;
-    printf("sp %d, fp %d\n", i->sp - i->stack, i->fp - i->stack);
+    printf("sp %d, fp %d\n", (int)(i->sp - i->stack), (int)(i->fp - i->stack));
     printf("%d", i->tos);
     ShowOffset(i, i->tos);
     if (i->sp < i->stackTop) {

@@ -123,7 +123,6 @@ static void ParseInclude(ParseContext *c)
 /* ParseDef - parse the 'def' statement */
 static void ParseDef(ParseContext *c)
 {
-    int complete = VMTRUE;
     char name[MAXTOKEN];
     int tkn;
 
@@ -139,7 +138,6 @@ static void ParseDef(ParseContext *c)
     else {
         SaveToken(c, tkn);
         ParseFunctionDef(c, name);
-        complete = VMFALSE;
     }
 }
 

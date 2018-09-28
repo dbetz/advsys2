@@ -1,25 +1,63 @@
-CFLAGS=-Wall -I$(HDRDIR) -m32
+CFLAGS=-Wall -I$(HDRDIR)
+# -m32
+
+ifeq ($(CROSS),)
+  PREFIX=
+else
+  ifeq ($(CROSS),win32)
+	PREFIX=i686-w64-mingw32-
+    OS=msys
+  else
+    ifeq ($(CROSS),rpi)
+      PREFIX=arm-linux-gnueabihf-
+      OS=raspberrypi
+    else
+      $(error Unknown cross compilation selected)
+    endif
+  endif
+endif
+
+ifeq ($(OS),Windows_NT)
+OS=msys
+endif
 
 ifeq ($(OS),linux)
-CFLAGS += -DLINUX
+CFLAGS+=-DLINUX
 EXT=
-OSINT=osint_linux
+
+else ifeq ($(OS),raspberrypi)
+CFLAGS+=-DLINUX -DRASPBERRY_PI
+EXT=
+
+else ifeq ($(OS),msys)
+CFLAGS+=-DMINGW
+LDFLAGS=-static
+EXT=.exe
+
+else ifeq ($(OS),macosx)
+CFLAGS+=-DMACOSX
+EXT=
+
+else ifeq ($(OS),)
+$(error OS not set)
+
+else
+$(error Unknown OS $(OS))
 endif
 
-ifeq ($(OS),macosx)
-CFLAGS += -DMACOSX
-EXT=
-OSINT=osint_linux
-endif
+BUILD=$(realpath ..)/advsys2-$(OS)-build
+$(info BUILD $(BUILD))
+
 
 SRCDIR=src
 HDRDIR=src
 SPINDIR=spin
 TOOLSDIR=tools
-OBJDIR=obj
-BINDIR=bin
+OBJDIR=$(BUILD)/obj
+BINDIR=$(BUILD)/bin
 
-CC=gcc
+CC=$(PREFIX)gcc
+TOOLCC=gcc
 ECHO=echo
 MKDIR=mkdir -p
 SPINCMP=openspin
@@ -62,7 +100,8 @@ $(OBJDIR)/advsys2_run_template.o \
 $(OBJDIR)/advsys2_step_template.o \
 $(OBJDIR)/wordfire_template.o
 
-all:	$(DIRS) bin2c adv2com adv2int propbinary
+all:	$(DIRS) bin2c adv2com propbinary
+# adv2int 
 
 game:    adv2int game.dat
 	$(BINDIR)/adv2int game.dat
@@ -117,12 +156,12 @@ $(BINDIR)/propbinary$(EXT):	$(PROPBINARYOBJS)
 .PHONY:	bin2c
 bin2c:		$(BINDIR)/bin2c$(EXT)
 
-$(BINDIR)/bin2c$(EXT):	$(OBJDIR) $(TOOLSDIR)/bin2c.c
-	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(TOOLSDIR)/bin2c.c
+$(BINDIR)/bin2c$(EXT):	$(TOOLSDIR)/bin2c.c
+	$(TOOLCC) $(CFLAGS) $(LDFLAGS) $(TOOLSDIR)/bin2c.c -o $@
 	@$(ECHO) $@
 
 $(DIRS):
 	$(MKDIR) $@
 
 clean:
-	rm -r -f obj bin *.dat *.binary
+	rm -r -f $(BUILD) *.dat *.binary

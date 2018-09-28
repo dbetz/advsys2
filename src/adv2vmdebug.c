@@ -86,7 +86,7 @@ int DecodeInstruction(const uint8_t *base, const uint8_t *lc)
     opcode = VMCODEBYTE(lc);
 
     /* show the address */
-    printf("%04x %02x ", lc - base, opcode);
+    printf("%04x %02x ", (int)(lc - base), opcode);
     n = 1;
 
     /* display the operands */
@@ -138,7 +138,7 @@ int DecodeInstruction(const uint8_t *base, const uint8_t *lc)
                 printf("%s ", op->name);
                 for (i = 0; i < sizeof(VMWORD); ++i)
                     printf("%02x", bytes[i]);
-                printf(" # %04x\n", (lc + 1 + sizeof(VMWORD) + offset) - base);
+                printf(" # %04x\n", (int)((lc + 1 + sizeof(VMWORD) + offset) - base));
                 n += sizeof(VMWORD);
                 break;
             }

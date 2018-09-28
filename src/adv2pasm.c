@@ -482,7 +482,6 @@ static void ParseFile(ParseContext *c, int pass)
     /* get the next line */
     while (GetLine(c)) {
         char retLabel[MAXTOKEN + 4];
-        Symbol *sym = NULL;
         FieldDef *fdef = NULL;
         OpDef *odef = NULL;
         VMUVALUE inst;
@@ -498,7 +497,7 @@ static void ParseFile(ParseContext *c, int pass)
                 if (!(fdef = FindField(c->token))) {
                 
                     /* handle a label */
-                    sym = AddSymbol(c, c->token, SYMBOL_VALUE, lc);
+                    AddSymbol(c, c->token, SYMBOL_VALUE, lc);
                     
                     /* get a conditional or an opcode */
                     if ((tkn = GetIdentifier(c, "expecting a conditional or an opcode")) == T_EOL)

@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
     if (c->debugMode) {
         PrintStrings(c);
     }
-    printf("data: %d, code %d, strings: %d\n", c->dataFree - c->dataBuf, c->codeFree - c->codeBuf, c->stringFree - c->stringBuf);
+    printf("data: %d, code %d, strings: %d\n", (int)(c->dataFree - c->dataBuf), (int)(c->codeFree - c->codeBuf), (int)(c->stringFree - c->stringBuf));
     
     image = BuildImage(c, &imageSize);
     
