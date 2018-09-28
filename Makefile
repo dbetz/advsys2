@@ -33,7 +33,11 @@ $(OBJDIR)/adv2pasm.o \
 $(OBJDIR)/adv2scan.o \
 $(OBJDIR)/adv2gen.o \
 $(OBJDIR)/adv2debug.o \
-$(OBJDIR)/adv2vmdebug.o
+$(OBJDIR)/adv2vmdebug.o \
+$(OBJDIR)/propbinary.o \
+$(OBJDIR)/advsys2_run_template.o \
+$(OBJDIR)/advsys2_step_template.o \
+$(OBJDIR)/wordfire_template.o
 
 COMHDRS = \
 $(HDRDIR)/adv2compiler.h \
@@ -52,6 +56,7 @@ $(HDRDIR)/adv2types.h \
 $(HDRDIR)/adv2vmdebug.h
 
 PROPBINARYOBJS = \
+$(OBJDIR)/propbinaryapp.o \
 $(OBJDIR)/propbinary.o \
 $(OBJDIR)/advsys2_run_template.o \
 $(OBJDIR)/advsys2_step_template.o \

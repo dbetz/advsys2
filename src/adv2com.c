@@ -11,10 +11,19 @@
 #include <setjmp.h>
 #include "adv2compiler.h"
 #include "adv2vm.h"
+#include "propbinary.h"
+
+extern uint8_t advsys2_run_template_array[];
+extern int advsys2_run_template_size;
+extern uint8_t advsys2_step_template_array[];
+extern int advsys2_step_template_size;
+extern uint8_t wordfire_template_array[];
+extern int wordfire_template_size;
 
 static void Usage(void);
+static uint8_t *BuildImage(ParseContext *c, int *pSize);
+static void WriteImage(ParseContext *c, char *name, uint8_t *image, int imageSize);
 static void ConnectAll(ParseContext *c);
-static void WriteImage(ParseContext *c, char *name);
 static void PlaceStrings(ParseContext *c);
 static void PrintStrings(ParseContext *c);
 
@@ -25,7 +34,11 @@ int main(int argc, char *argv[])
     char outputFileBuf[100], *p;
     char *inputFile = NULL;
     char *outputFile = NULL;
+    char *templateName = NULL;
     int showSymbols = VMFALSE;
+    uint8_t *template, *image;
+    int templateSize, imageSize;
+    char *ext = ".dat";
     int i;
     
     /* initialize the parse context */
@@ -86,6 +99,14 @@ int main(int argc, char *argv[])
             case 's':   // show the global symbol table
                 showSymbols = VMTRUE;
                 break;
+            case 't':
+                if(argv[i][2])
+                    templateName = &argv[i][2];
+                else if(++i < argc)
+                    templateName = argv[i];
+                else
+                    Usage();
+                break;
             default:
                 Usage();
                 break;
@@ -103,6 +124,26 @@ int main(int argc, char *argv[])
     if (!inputFile)
         Usage();
         
+    if (templateName) {
+        if (strcmp(templateName, "run") == 0) {
+            template = advsys2_run_template_array;
+            templateSize = advsys2_run_template_size;
+        }
+        else if (strcmp(templateName, "step") == 0) {
+            template = advsys2_step_template_array;
+            templateSize = advsys2_step_template_size;
+        }
+        else if (strcmp(templateName, "wordfire") == 0) {
+            template = wordfire_template_array;
+            templateSize = wordfire_template_size;
+        }
+        else {
+            printf("error: unknown template name '%s'\n", templateName);
+            return 1;
+        }
+        ext = ".binary";
+    }
+    
     if (!outputFile) {
         if (!(p = strrchr(inputFile, '.')))
             strcpy(outputFileBuf, inputFile);
@@ -110,7 +151,7 @@ int main(int argc, char *argv[])
             strncpy(outputFileBuf, inputFile, p - argv[1]);
             outputFileBuf[p - inputFile] = '\0';
         }
-        strcat(outputFileBuf, ".dat");
+        strcat(outputFileBuf, ext);
         outputFile = outputFileBuf;
     }
     
@@ -154,18 +195,28 @@ int main(int argc, char *argv[])
     }
     printf("data: %d, code %d, strings: %d\n", c->dataFree - c->dataBuf, c->codeFree - c->codeBuf, c->stringFree - c->stringBuf);
     
-    WriteImage(c, outputFile);
+    image = BuildImage(c, &imageSize);
+    
+    if (template) {
+        uint8_t *binary;
+        int binarySize;
+        binary = BuildBinary(template, templateSize, image, imageSize, &binarySize);
+        WriteImage(c, outputFile, binary, binarySize);
+    }
+    else {
+        WriteImage(c, outputFile, image, imageSize);
+    }
     
     return 0;
 }
   
 static void Usage(void)
 {
-    printf("usage: adv2com [ -d ] [ -o <output-file> ] [ -s ] <input-file>\n");
+    printf("usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] <input-file>\n");
     exit(1);
 }
 
-static void WriteImage(ParseContext *c, char *name)
+static uint8_t *BuildImage(ParseContext *c, int *pSize)
 {
     int dataSize = c->dataFree - c->dataBuf;
     int stringSize = c->stringFree - c->stringBuf;
@@ -173,7 +224,6 @@ static void WriteImage(ParseContext *c, char *name)
     int imageSize = sizeof(ImageHdr) + dataSize + codeSize + stringSize;
     ImageHdr *hdr;
     Symbol *sym;
-    FILE *fp;
     
     if (!(hdr = (ImageHdr *)malloc(imageSize)))
         ParseError(c, "insufficient memory to build image");
@@ -196,15 +246,20 @@ static void WriteImage(ParseContext *c, char *name)
         ParseError(c, "expecting 'main' to be a function");
     hdr->mainFunction = sym->v.value;
     
+    return (uint8_t *)hdr;
+}
+
+static void WriteImage(ParseContext *c, char *name, uint8_t *image, int imageSize)
+{
+    FILE *fp;
+        
     if (!(fp = fopen(name, "wb")))
         ParseError(c, "can't create file '%s'", name);
         
-    if (fwrite(hdr, 1, imageSize, fp) != imageSize)
+    if (fwrite(image, 1, imageSize, fp) != imageSize)
         ParseError(c, "error writing image file");
         
     fclose(fp);
-    
-    //Execute(hdr);
 }
 
 static char *storageClassNames[] = {
