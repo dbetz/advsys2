@@ -641,9 +641,11 @@ _OP_PADDR              ' load the address of a property value
         call    #pop_r1
         mov     r2,tos
         call    #prop_addr
-        sub     r3,dbase
         mov     tos,r3 wz
-  if_ne jmp     #_next
+  if_z  jmp     #properr
+        sub     tos,dbase
+        jmp     #_next
+        
 properr mov     tos,#1
         ' fall through
         
@@ -723,7 +725,6 @@ prop_addr_ret
         ret
         
 match   add     r3,#4       ' get the address of the property value
-        sub     r2,dbase
         jmp     prop_addr_ret
         
 lowMask long    $7fffffff
