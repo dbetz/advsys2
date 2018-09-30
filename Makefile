@@ -100,8 +100,7 @@ $(OBJDIR)/advsys2_run_template.o \
 $(OBJDIR)/advsys2_step_template.o \
 $(OBJDIR)/wordfire_template.o
 
-all:	$(DIRS) bin2c adv2com propbinary
-# adv2int 
+all:	$(DIRS) bin2c adv2com adv2int propbinary
 
 game:    adv2int game.dat
 	$(BINDIR)/adv2int game.dat

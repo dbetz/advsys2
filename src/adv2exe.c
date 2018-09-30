@@ -53,9 +53,11 @@ typedef struct {
 #define Pop(i)          (*(i)->sp++)
 #define Top(i)          (*(i)->sp)
 #define Drop(i, n)      ((i)->sp += (n))
+#define Ptr2Off(i, p)   (VMVALUE)(((uint8_t *)(p) - (i)->dataBase))
+#define Off2Ptr(i, o)   ((i)->dataBase + (o))
 
 /* prototypes for local functions */
-static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE property, VMVALUE *pValue);
+static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE property, VMVALUE **pPtr);
 static void DoSend(Interpreter *i);
 static void Throw(Interpreter *i, VMVALUE value);
 static void DoTrap(Interpreter *i, int op);
@@ -67,7 +69,7 @@ static void ShowStack(Interpreter *i);
 int Execute(ImageHdr *image, int debug)
 {
     Interpreter *i;
-    VMVALUE tmp;
+    VMVALUE tmp, *p;
     VMWORD tmpw;
     int8_t tmpb;
     int cnt;
@@ -97,7 +99,7 @@ int Execute(ImageHdr *image, int debug)
     /* put the address of a HALT on the top of the stack */
     /* codeBase[0] is zero to act as the second byte of a fake CALL instruction */
     /* codeBase[1] is a HALT instruction */
-    i->tos = (VMVALUE)i->codeBase + 1;
+    i->tos = Ptr2Off(i, i->codeBase + 1);
     
     if (setjmp(i->errorTarget))
         return VMFALSE;
@@ -246,7 +248,7 @@ int Execute(ImageHdr *image, int debug)
         case OP_LADDR:
             tmpb = (int8_t)VMCODEBYTE(i->pc++);
             CPush(i, i->tos);
-            i->tos = (VMVALUE)((uint8_t *)&i->fp[(int)tmpb] - i->dataBase);
+            i->tos = Ptr2Off(i, &i->fp[(int)tmpb]);
             break;
         case OP_INDEX:
             tmp = Pop(i);
@@ -259,12 +261,12 @@ int Execute(ImageHdr *image, int debug)
         case OP_CALL:
             ++i->pc; // skip over the argument count
             tmp = i->tos;
-            i->tos = (VMVALUE)i->pc;
+            i->tos = Ptr2Off(i, i->pc);
             i->pc = i->codeBase + tmp;
             break;
         case OP_FRAME:
             cnt = VMCODEBYTE(i->pc++);
-            tmp = (VMVALUE)i->fp;
+            tmp = Ptr2Off(i, i->fp);
             i->fp = i->sp;
             Reserve(i, cnt);
             *i->sp = tmp;
@@ -274,11 +276,11 @@ int Execute(ImageHdr *image, int debug)
             i->tos = 0;
             // fall through
         case OP_RETURN:
-            i->pc = (uint8_t *)i->sp[0];
+            i->pc = Off2Ptr(i, Top(i));
             tmp = i->sp[1];
             i->sp = i->fp;
             Drop(i, i->pc[-1]);
-            i->fp = (VMVALUE *)tmp;
+            i->fp = (VMVALUE *)Off2Ptr(i, tmp);
             break;
         case OP_DROP:
             i->tos = Pop(i);
@@ -304,9 +306,9 @@ int Execute(ImageHdr *image, int debug)
             DoSend(i);
             break;
         case OP_PADDR:
-            if (!GetPropertyAddr(i, Pop(i), i->tos, &i->tos))
+            if (!GetPropertyAddr(i, Pop(i), i->tos, &p))
                 Throw(i, 1);
-            i->tos -= (VMVALUE)i->dataBase;
+            i->tos = Ptr2Off(i, p);
             break;
         case OP_CLASS:
             i->tos = ((ObjectHdr *)(i->dataBase + i->tos))->class;
@@ -316,17 +318,17 @@ int Execute(ImageHdr *image, int debug)
                 tmpw = (tmpw << 8) | VMCODEBYTE(i->pc++);
             Check(i, 4);
             Push(i, i->tos);
-            Push(i, (VMVALUE)(i->pc + tmpw));
-            Push(i, (VMVALUE)i->fp);
-            Push(i, (VMVALUE)i->efp);
+            Push(i, Ptr2Off(i, i->pc + tmpw));
+            Push(i, Ptr2Off(i, i->fp));
+            Push(i, Ptr2Off(i, i->efp));
             i->efp = i->sp;
             break;
         case OP_TRYEXIT:
             tmp = Pop(i);
-            i->fp = (VMVALUE *)Pop(i);
+            i->fp = (VMVALUE *)Off2Ptr(i, Pop(i));
             Drop(i, 1);
             i->tos = Pop(i);
-            i->efp = (VMVALUE *)tmp;
+            i->efp = (VMVALUE *)Off2Ptr(i, tmp);
             break;
         case OP_THROW:
             Throw(i, i->tos);
@@ -341,7 +343,7 @@ int Execute(ImageHdr *image, int debug)
     }
 }
 
-static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag, VMVALUE *pValue)
+static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag, VMVALUE **pPtr)
 {
     ObjectHdr *hdr = (ObjectHdr *)(i->dataBase + object);
     while (object) {
@@ -349,7 +351,7 @@ static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag, VMVALUE 
         int nProperties = hdr->nProperties;
         while (--nProperties >= 0) {
             if ((property->tag & ~P_SHARED) == tag) {
-                *pValue = (VMVALUE)&property->value;
+                *pPtr = (VMVALUE *)&property->value;
                 return VMTRUE;
             }
             ++property;
@@ -362,14 +364,14 @@ static int GetPropertyAddr(Interpreter *i, VMVALUE object, VMVALUE tag, VMVALUE 
 
 static void DoSend(Interpreter *i)
 {
-    VMVALUE tmp, p;
+    VMVALUE obj, prop, *p;
     ++i->pc; // skip over the argument count
-    tmp = i->tos;
-    i->tos = (VMVALUE)i->pc;
-    if (!(p = i->sp[1]))
-        p = i->sp[0];
-    if (GetPropertyAddr(i, p, tmp, &p))
-        i->pc = i->codeBase + *(VMVALUE *)p;
+    prop = i->tos;
+    i->tos = Ptr2Off(i, i->pc);
+    if (!(obj = i->sp[1]))
+        obj = i->sp[0];
+    if (GetPropertyAddr(i, obj, prop, &p))
+        i->pc = i->codeBase + *p;
     else
         Throw(i, 1);
 }
@@ -379,11 +381,11 @@ static void Throw(Interpreter *i, VMVALUE value)
     VMVALUE tmp;
     if (!i->efp)
         Abort(i, "uncaught throw %d", value);
-    i->sp = (VMVALUE *)i->efp;
+    i->sp = i->efp;
     tmp = Pop(i);
-    i->fp = (VMVALUE *)Pop(i);
-    i->pc = (uint8_t *)Pop(i);
-    i->efp = (VMVALUE *)tmp;
+    i->fp = (VMVALUE *)Off2Ptr(i, Pop(i));
+    i->pc = Off2Ptr(i, Pop(i));
+    i->efp = (VMVALUE *)Off2Ptr(i, tmp);
     i->tos = value;
 }
 
@@ -437,7 +439,7 @@ static void Abort(Interpreter *i, const char *fmt, ...)
 
 static void ShowOffset(Interpreter *i, VMVALUE value)
 {
-    uint8_t *p = (uint8_t *)value;
+    uint8_t *p = (uint8_t *)Off2Ptr(i, value);
     if (p >= i->dataBase && p < i->dataTop)
         printf("(d:%d)", (int)(p - i->dataBase));
     else if (p >= i->codeBase && p < i->codeTop)
