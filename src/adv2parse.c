@@ -58,7 +58,8 @@ static ParseTreeNode *GetSymbolRef(ParseContext *c, char *name);
 static ParseTreeNode *ParseSimplePrimary(ParseContext *c);
 static ParseTreeNode *ParseArrayReference(ParseContext *c, ParseTreeNode *arrayNode, PvType type);
 static ParseTreeNode *ParseCall(ParseContext *c, ParseTreeNode *functionNode);
-static ParseTreeNode *ParseSend(ParseContext *c);
+static ParseTreeNode *ParseMethodCall(ParseContext *c, ParseTreeNode *object, ParseTreeNode *property);
+static ParseTreeNode *ParseSuperMethodCall(ParseContext *c);
 static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object);
 static ParseTreeNode *MakeUnaryOpNode(ParseContext *c, int op, ParseTreeNode *expr);
 static ParseTreeNode *MakeBinaryOpNode(ParseContext *c, int op, ParseTreeNode *left, ParseTreeNode *right);
@@ -1598,32 +1599,31 @@ static ParseTreeNode *ParseSelector(ParseContext *c)
     return node;
 }
 
-/* ParseSend - parse a message send */
-static ParseTreeNode *ParseSend(ParseContext *c)
+/* ParseMethodCall - parse a method call */
+static ParseTreeNode *ParseMethodCall(ParseContext *c, ParseTreeNode *object, ParseTreeNode *selector)
 {
-    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeSend);
+    ParseTreeNode *node = NewParseTreeNode(c, NodeTypeMethodCall);
     NodeListEntry **pLast;
     int tkn;
 
-    /* parse the object and selector */
-    if ((tkn = GetToken(c)) == T_SUPER) {
+    /* get the value of 'super' if needed */
+    if (object == NULL) {
         if (!c->currentObjectSymbol)
             ParseError(c, "super outside of a method definition");
-        node->u.send.class = NewParseTreeNode(c, NodeTypeGlobalSymbolRef);
-        node->u.send.class->u.symbolRef.symbol = c->currentObjectSymbol;
-        node->u.send.object = NewParseTreeNode(c, NodeTypeArgumentRef);
-        node->u.send.object->u.localSymbolRef.symbol = FindLocalSymbol(&c->currentFunction->u.functionDef.arguments, "self");
+        node->u.methodCall.class = NewParseTreeNode(c, NodeTypeGlobalSymbolRef);
+        node->u.methodCall.class->u.symbolRef.symbol = c->currentObjectSymbol;
+        node->u.methodCall.object = NewParseTreeNode(c, NodeTypeArgumentRef);
+        node->u.methodCall.object->u.localSymbolRef.symbol = FindLocalSymbol(&c->currentFunction->u.functionDef.arguments, "self");
     }
     else {
-        SaveToken(c, tkn);
-        node->u.send.class = NULL;
-        node->u.send.object = ParseExpr(c);
+        node->u.methodCall.class = NULL;
+        node->u.methodCall.object = object;
     }
-    node->u.send.selector = ParseSelector(c);
+    node->u.methodCall.selector = selector;
 
     /* parse the argument list */
-    pLast = &node->u.send.args;
-    if ((tkn = GetToken(c)) != ']') {
+    pLast = &node->u.methodCall.args;
+    if ((tkn = GetToken(c)) != ')') {
         SaveToken(c, tkn);
         do {
             NodeListEntry *actual;
@@ -1632,13 +1632,23 @@ static ParseTreeNode *ParseSend(ParseContext *c)
             actual->next = NULL;
             *pLast = actual;
             pLast = &actual->next;
-            ++node->u.send.argc;
+            ++node->u.methodCall.argc;
         } while ((tkn = GetToken(c)) == ',');
-        Require(c, tkn, ']');
+        Require(c, tkn, ')');
     }
 
-    /* return the function call node */
+    /* return the method call node */
     return node;
+}
+
+/* ParseSuperMethodCall - parse a 'super' method call */
+static ParseTreeNode *ParseSuperMethodCall(ParseContext *c)
+{
+    ParseTreeNode *selector;
+    FRequire(c, '.');
+    selector = ParseSelector(c);
+    FRequire(c, '(');
+    return ParseMethodCall(c, NULL, selector);
 }
 
 /* ParsePropertyRef - parse a property reference */
@@ -1651,24 +1661,32 @@ static ParseTreeNode *ParsePropertyRef(ParseContext *c, ParseTreeNode *object)
         node = NewParseTreeNode(c, NodeTypeClassRef);
         node->u.classRef.object = object;
     }
-    else if (tkn == T_IDENTIFIER) {
-        node = NewParseTreeNode(c, NodeTypePropertyRef);
-        node->u.propertyRef.object = object;
-        node->u.propertyRef.property = MakeIntegerLitNode(c, AddProperty(c, c->token));
-    }
-    else if (tkn == '(') {
-        node = NewParseTreeNode(c, NodeTypePropertyRef);
-        node->u.propertyRef.object = object;
-        node->u.propertyRef.property = ParseExpr(c);
-        FRequire(c, ')');
-    }
     else if (tkn == T_BYTE) {
         FRequire(c, '[');
         node = ParseArrayReference(c, object, PVT_BYTE);
     }
     else {
-        ParseError(c, "expecting 'class', a property name, or a parenthesized expression");
-        node = NULL; // never reached
+        ParseTreeNode *selector;
+        if (tkn == T_IDENTIFIER) {
+            selector = MakeIntegerLitNode(c, AddProperty(c, c->token));
+        }
+        else if (tkn == '(') {
+            selector = ParseExpr(c);
+            FRequire(c, ')');
+        }
+        else {
+            ParseError(c, "expecting 'class', a property name, parenthesized expression, or 'byte'");
+            node = selector = NULL; // never reached
+        }
+        if ((tkn = GetToken(c)) == '(') {
+            node = ParseMethodCall(c, object, selector);
+        }
+        else {
+            SaveToken(c, tkn);
+            node = NewParseTreeNode(c, NodeTypePropertyRef);
+            node->u.propertyRef.object = object;
+            node->u.propertyRef.selector = selector;
+        }
     }
     
     return node;
@@ -1683,8 +1701,8 @@ static ParseTreeNode *ParseSimplePrimary(ParseContext *c)
         node = ParseExpr(c);
         FRequire(c,')');
         break;
-    case '[':
-        node = ParseSend(c);
+    case T_SUPER:
+        node = ParseSuperMethodCall(c);
         break;
     case T_NUMBER:
         node = MakeIntegerLitNode(c, c->value);

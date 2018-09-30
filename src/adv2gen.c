@@ -26,7 +26,7 @@ static void code_symbolref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_shortcircuit(ParseContext *c, int op, ParseTreeNode *expr, PVAL *pv);
 static void code_arrayref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
-static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
+static void code_methodcall(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
 static void code_lvalue(ParseContext *c, ParseTreeNode *expr, PVAL *pv);
@@ -442,8 +442,8 @@ static void code_expr(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     case NodeTypeFunctionCall:
         code_call(c, expr, pv);
         break;
-    case NodeTypeSend:
-        code_send(c, expr, pv);
+    case NodeTypeMethodCall:
+        code_methodcall(c, expr, pv);
         break;
     case NodeTypeClassRef:
         code_classref(c, expr, pv);
@@ -567,15 +567,15 @@ static void code_call(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     pv->fcn = NULL;
 }
 
-/* code_send - code a message send */
-static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
+/* code_methodcall - code a method call */
+static void code_methodcall(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
     /* code each argument expression */
-    code_arguments(c, expr->u.send.args);
+    code_arguments(c, expr->u.methodCall.args);
 
     /* code the object from which to start searching for the method */
-    if (expr->u.send.class) {
-        code_rvalue(c, expr->u.send.class);
+    if (expr->u.methodCall.class) {
+        code_rvalue(c, expr->u.methodCall.class);
         putcbyte(c, OP_CLASS);
     }
     else {
@@ -584,14 +584,14 @@ static void code_send(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
     }
     
     /* code the object receiving the message */
-    code_rvalue(c, expr->u.send.object);
+    code_rvalue(c, expr->u.methodCall.object);
     
     /* code the selector */
-    code_rvalue(c, expr->u.send.selector);
+    code_rvalue(c, expr->u.methodCall.selector);
 
     /* code the send operation */
     putcbyte(c, OP_SEND);
-    putcbyte(c, expr->u.send.argc + 2);
+    putcbyte(c, expr->u.methodCall.argc + 2);
 
     /* we've got an rvalue now */
     pv->fcn = NULL;
@@ -609,7 +609,7 @@ static void code_classref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 static void code_propertyref(ParseContext *c, ParseTreeNode *expr, PVAL *pv)
 {
     code_rvalue(c, expr->u.propertyRef.object);
-    code_rvalue(c, expr->u.propertyRef.property);
+    code_rvalue(c, expr->u.propertyRef.selector);
     putcbyte(c, OP_PADDR);
     pv->fcn = code_dataref;
     pv->type = PVT_LONG;

@@ -186,16 +186,16 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         printf("%*sargs\n", indent + 2, "");
         PrintNodeList(c, node->u.functionCall.args, indent + 4);
         break;
-    case NodeTypeSend:
-        printf("Send\n");
+    case NodeTypeMethodCall:
+        printf("MethodCall\n");
         printf("%*sobject\n", indent + 2, "");
-        if (node->u.send.object)
-            PrintNode(c, node->u.send.object, indent + 4);
+        if (node->u.methodCall.object)
+            PrintNode(c, node->u.methodCall.object, indent + 4);
         else
             printf("%*ssuper\n", indent + 4, "");
         printf("%*sselector\n", indent + 2, "");
-        PrintNode(c, node->u.send.selector, indent + 4);
-        PrintNodeList(c, node->u.send.args, indent + 2);
+        PrintNode(c, node->u.methodCall.selector, indent + 4);
+        PrintNodeList(c, node->u.methodCall.args, indent + 2);
         break;
     case NodeTypeClassRef:
         printf("ClassRef\n");
@@ -206,8 +206,8 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         printf("PropertyRef\n");
         printf("%*sobject\n", indent + 2, "");
         PrintNode(c, node->u.propertyRef.object, indent + 4);
-        printf("%*sproperty\n", indent + 2, "");
-        PrintNode(c, node->u.propertyRef.property, indent + 4);
+        printf("%*sselector\n", indent + 2, "");
+        PrintNode(c, node->u.propertyRef.selector, indent + 4);
         break;
     case NodeTypeDisjunction:
         printf("Disjunction\n");

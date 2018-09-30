@@ -323,7 +323,7 @@ enum {
     NodeTypeAssignmentOp,
     NodeTypeArrayRef,
     NodeTypeFunctionCall,
-    NodeTypeSend,
+    NodeTypeMethodCall,
     NodeTypeClassRef,
     NodeTypePropertyRef,
     NodeTypeDisjunction,
@@ -452,13 +452,13 @@ struct ParseTreeNode {
             ParseTreeNode *selector;
             NodeListEntry *args;
             int argc;
-        } send;
+        } methodCall;
         struct {
             ParseTreeNode *object;
         } classRef;
         struct {
             ParseTreeNode *object;
-            ParseTreeNode *property;
+            ParseTreeNode *selector;
         } propertyRef;
         struct {
             NodeListEntry *exprs;
