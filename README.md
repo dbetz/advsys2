@@ -129,15 +129,18 @@ expr % expr
 expr++
 expr--
 
-function()
-function ( arg [, arg ]... )
+function ( )
+function ( arg [ , arg ]... )
 array [ index ]
 array.byte [ index ]
 
 (expr)
 var
 object . property
-[ object property ]
-[ object property arg [, arg ]... ]
+object . property ( )
+object . property ( arg [ , arg ]... )
+super . property ( )
+super . property ( arg [ , arg ]... )
 integer
 "string"
+'c'
