@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
     char *outputFile = NULL;
     char *templateName = NULL;
     int showSymbols = VMFALSE;
+    int runProgram = VMFALSE;
     uint8_t *template, *image;
     int templateSize, imageSize;
     char *ext = ".dat";
@@ -95,6 +96,9 @@ int main(int argc, char *argv[])
                     outputFile = argv[i];
                 else
                     Usage();
+                break;
+            case 'r':   // run program after compiling
+                runProgram = VMTRUE;
                 break;
             case 's':   // show the global symbol table
                 showSymbols = VMTRUE;
@@ -207,13 +211,16 @@ int main(int argc, char *argv[])
         WriteImage(c, outputFile, image, imageSize);
     }
     
+    if (runProgram)
+        Execute((ImageHdr *)image, VMFALSE);
+    
     return 0;
 }
   
 static void Usage(void)
 {
     printf("\
-usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] <input-file>\n\
+usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] [ -r ] <input-file>\n\
        templates: run, step, wordfire\n");
     exit(1);
 }

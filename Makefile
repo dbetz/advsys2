@@ -1,5 +1,4 @@
 CFLAGS=-Wall -I$(HDRDIR)
-# -m32
 
 ifeq ($(CROSS),)
   PREFIX=
@@ -72,6 +71,7 @@ $(OBJDIR)/adv2scan.o \
 $(OBJDIR)/adv2gen.o \
 $(OBJDIR)/adv2debug.o \
 $(OBJDIR)/adv2vmdebug.o \
+$(OBJDIR)/adv2exe.o \
 $(OBJDIR)/propbinary.o \
 $(OBJDIR)/advsys2_run_template.o \
 $(OBJDIR)/advsys2_step_template.o \
