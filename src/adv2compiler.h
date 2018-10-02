@@ -134,15 +134,19 @@ struct Symbol {
 
 /* fixup types */
 typedef enum {
-    FT_DATA = 1,
-    FT_CODE
+    FT_DATA,
+    FT_CODE,
+    FT_PTR
 } FixupType;
 
 /* fixup structure */
 struct Fixup {
     Fixup *next;
     FixupType type;
-    VMVALUE offset;
+    union {
+        VMVALUE offset;
+        VMVALUE *pOffset;
+    } v;
 };
 
 /* forward type declarations */
@@ -230,6 +234,20 @@ struct IncludedFile {
     char name[1];               /* file name */
 };
 
+/* word structure */
+typedef struct Word Word;
+struct Word {
+    Word *next;
+    int type;
+    String *string;
+};
+
+/* word type structure */
+typedef struct {
+    char *name;
+    int type;
+} WordType;
+
 /* parse context */
 typedef struct {
     jmp_buf errorTarget;                            /* error target */
@@ -268,6 +286,8 @@ typedef struct {
     uint8_t stringBuf[MAXSTRING];                   /* string buffer */
     uint8_t *stringFree;                            /* next available string location */
     uint8_t *stringTop;                             /* top of string buffer */
+    Word *words;                                    /* list of words */
+    Word **pNextWord;                               /* place to store next word */
     int debugMode;                                  /* debug mode flag */
 } ParseContext;
 
@@ -479,6 +499,7 @@ Symbol *FindSymbol(ParseContext *c, const char *name);
 void PrintSymbols(ParseContext *c);
 void Abort(ParseContext *c, const char *fmt, ...);
 void AddStringRef(ParseContext *c, String *string, FixupType fixupType, VMVALUE offset);
+void AddStringPtrRef(ParseContext *c, String *string, VMVALUE *pOffset);
 String *AddString(ParseContext *c, char *value);
 void *LocalAlloc(ParseContext *c, size_t size);
 

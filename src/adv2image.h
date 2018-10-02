@@ -125,7 +125,15 @@ enum {
     TRAP_SetDevice    = 5
 };
 
-/* prototypes */
-void InitImage(ImageHdr *image);
+/* word types */
+enum {
+    WT_NONE,
+    WT_NOUN,
+    WT_VERB,
+    WT_ADJECTIVE,
+    WT_PREPOSITION,
+    WT_CONJUNCTION,
+    WT_ARTICLE
+};
 
 #endif

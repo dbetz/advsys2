@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
     AddGlobal(c, "nil", SC_CONSTANT, 0);
     c->pNextString = &c->strings;
     c->pNextDataBlock = &c->dataBlocks;
+    c->pNextWord = &c->words;
     
     /* add the containment properties */
     c->parentProperty = AddProperty(c, "_parent");
@@ -199,6 +200,17 @@ int main(int argc, char *argv[])
     }
     printf("data: %d, code %d, strings: %d\n", (int)(c->dataFree - c->dataBuf), (int)(c->codeFree - c->codeBuf), (int)(c->stringFree - c->stringBuf));
     
+    {
+        Word *word = c->words;
+        if (word) {
+            printf("Words:\n");
+            while (word != NULL) {
+                printf("  %s %d %d\n", word->string->data, word->type, word->string->offset);
+                word = word->next;
+            }
+        }
+    }
+    
     image = BuildImage(c, &imageSize);
     
     if (template) {
@@ -296,10 +308,13 @@ Symbol *AddGlobal(ParseContext *c, const char *name, StorageClass storageClass, 
             nextFixup = fixup->next;
             switch (fixup->type) {
             case FT_DATA:
-                *(VMVALUE *)&c->dataBuf[fixup->offset] = value;
+                *(VMVALUE *)&c->dataBuf[fixup->v.offset] = value;
                 break;
             case FT_CODE:
-                wr_clong(c, fixup->offset, value);
+                wr_clong(c, fixup->v.offset, value);
+                break;
+            case FT_PTR:
+                // never reached
                 break;
             }
             free(fixup);
@@ -419,7 +434,7 @@ int AddSymbolRef(ParseContext *c, Symbol *symbol, FixupType fixupType, VMVALUE o
         return symbol->v.value;
     fixup = (Fixup *)LocalAlloc(c, sizeof(Fixup));
     fixup->type = fixupType;
-    fixup->offset = offset;
+    fixup->v.offset = offset;
     fixup->next = symbol->v.fixups;
     symbol->v.fixups = fixup;
     return 0;
@@ -492,7 +507,17 @@ void AddStringRef(ParseContext *c, String *string, FixupType fixupType, VMVALUE 
 {
     Fixup *fixup = (Fixup *)LocalAlloc(c, sizeof(Fixup));
     fixup->type = fixupType;
-    fixup->offset = offset;
+    fixup->v.offset = offset;
+    fixup->next = string->fixups;
+    string->fixups = fixup;
+}
+
+/* AddStringPtrRef - add a string reference */
+void AddStringPtrRef(ParseContext *c, String *string, VMVALUE *pOffset)
+{
+    Fixup *fixup = (Fixup *)LocalAlloc(c, sizeof(Fixup));
+    fixup->type = FT_PTR;
+    fixup->v.pOffset = pOffset;
     fixup->next = string->fixups;
     string->fixups = fixup;
 }
@@ -538,10 +563,13 @@ void PlaceStrings(ParseContext *c)
             nextFixup = fixup->next;
             switch (fixup->type) {
             case FT_DATA:
-                *(VMVALUE *)&c->dataBuf[fixup->offset] = str->offset;
+                *(VMVALUE *)&c->dataBuf[fixup->v.offset] = str->offset;
                 break;
             case FT_CODE:
-                wr_clong(c, fixup->offset, str->offset);
+                wr_clong(c, fixup->v.offset, str->offset);
+                break;
+            case FT_PTR:
+                *fixup->v.pOffset = str->offset;
                 break;
             }
             free(fixup);

@@ -23,6 +23,7 @@ static void ParseProperty(ParseContext *c);
 static ParseTreeNode *ParseFunction(ParseContext *c, char *name);
 static ParseTreeNode *ParseMethod(ParseContext *c, char *name);
 static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, int offset);
+static void ParseWords(ParseContext *c, int type);
 static ParseTreeNode *ParseIf(ParseContext *c);
 static ParseTreeNode *ParseWhile(ParseContext *c);
 static ParseTreeNode *ParseDoWhile(ParseContext *c);
@@ -72,12 +73,14 @@ static LocalSymbol *MakeLocalSymbol(ParseContext *c, const char *name, int offse
 static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
 static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue);
+static void AddWord(ParseContext *c, int type, char *name);
+static int FindWordType(char *namee);
 
 /* ParseDeclarations - parse variable, object, and function declarations */
 void ParseDeclarations(ParseContext *c)
 {
     char name[MAXTOKEN];
-    int tkn;
+    int tkn, type;
     
     /* parse declarations */
     while ((tkn = GetToken(c)) != T_EOF) {
@@ -96,7 +99,10 @@ void ParseDeclarations(ParseContext *c)
             break;
         case T_IDENTIFIER:
             strcpy(name, c->token);
-            ParseObject(c, name);
+            if ((type = FindWordType(c->token)) != WT_NONE)
+                ParseWords(c, type);
+            else
+                ParseObject(c, name);
             break;
         case T_PROPERTY:
             ParseProperty(c);
@@ -272,7 +278,7 @@ static void ParseNestedArray(ParseContext *c, DataBlock *parent, VMVALUE parentO
     dataBlock->parentOffset = parentOffset;
     
     do {
-        if ((tkn = GetToken(c)) == '[') {
+        if ((tkn = GetToken(c)) == '{') {
             VMVALUE offset = c->dataFree - arrayBase;
             StoreInitializer(c, 0);
             ParseNestedArray(c, dataBlock, offset);
@@ -283,7 +289,7 @@ static void ParseNestedArray(ParseContext *c, DataBlock *parent, VMVALUE parentO
         }
         ++size;
     } while ((tkn = GetToken(c)) == ',');
-    Require(c, tkn, ']');
+    Require(c, tkn, '}');
     
     dataBlock->size = size;
     dataBlock->data = LocalAlloc(c, c->dataFree - arrayBase);
@@ -389,7 +395,7 @@ static void ParseVar(ParseContext *c)
                     do {
                         if (declaredSize != -1 && --remaining < 0)
                             ParseError(c, "too many initializers");
-                        if ((tkn = GetToken(c)) == '[') {
+                        if ((tkn = GetToken(c)) == '{') {
                             VMVALUE offset = c->dataFree - c->dataBuf;
                             StoreInitializer(c, 0);
                             ParseNestedArray(c, NULL, offset);
@@ -639,6 +645,17 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
     c->currentFunction = NULL;
     
     return node;
+}
+
+/* ParseWords - parse a list of words of a specified type */
+static void ParseWords(ParseContext *c, int type)
+{
+    int tkn;
+    do {
+        FRequire(c, T_STRING);
+        AddWord(c, type, c->token);
+    } while ((tkn = GetToken(c)) == ',');
+    Require(c, tkn, ';');
 }
 
 /* ParseStatement - parse a statement */
@@ -1897,3 +1914,47 @@ static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue)
     }
     return result;
 }
+
+/* word type name table */
+static WordType wordTypes[] = {
+{   "noun",         WT_NOUN         },
+{   "verb",         WT_VERB         },
+{   "adjective",    WT_ADJECTIVE    },
+{   "preposition",  WT_PREPOSITION  },
+{   "conjunction",  WT_CONJUNCTION  },
+{   "article",      WT_ARTICLE      },
+{   NULL,           0               }
+};
+
+/* AddWord - add a vocabulary word */
+static void AddWord(ParseContext *c, int type, char *name)
+{
+    String *string = AddString(c, name);
+    Word *word = c->words;
+    while (word != NULL) {
+        if (strcmp(name, word->string->data) == 0) {
+            if (type != word->type)
+                ParseError(c, "'%s' already has type %s", name, wordTypes[word->type - 1].name);
+            return; // word is already in the list of words
+        }
+        word = word->next;
+    }
+    word = (Word *)LocalAlloc(c, sizeof(Word));
+    word->type = type;
+    word->string = string;
+    word->next = NULL;
+    *c->pNextWord = word;
+    c->pNextWord = &word->next;
+}
+
+/* FindWordType - find a word type by name */
+static int FindWordType(char *name)
+{
+    int i;
+    for (i = 0; wordTypes[i].name != NULL; ++i) {
+        if (strcmp(name, wordTypes[i].name) == 0)
+            return wordTypes[i].type;
+    }
+    return WT_NONE;
+}
+
