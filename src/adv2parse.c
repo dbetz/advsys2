@@ -73,7 +73,7 @@ static LocalSymbol *MakeLocalSymbol(ParseContext *c, const char *name, int offse
 static LocalSymbol *FindLocalSymbol(LocalSymbolTable *table, const char *name);
 static void AddNodeToList(ParseContext *c, NodeListEntry ***ppNextEntry, ParseTreeNode *node);
 static int IsIntegerLit(ParseTreeNode *node, VMVALUE *pValue);
-static void AddWord(ParseContext *c, int type, char *name);
+static void AddWord(ParseContext *c, int type, String *string);
 static int FindWordType(char *namee);
 
 /* ParseDeclarations - parse variable, object, and function declarations */
@@ -229,7 +229,9 @@ static VMVALUE ParseNestedArrayConstantLiteralExpr(ParseContext *c, DataBlock *d
         break;
     case NodeTypeStringLit:
         AddNestedArrayStringRef(c, dataBlock, expr->u.stringLit.string, offset);
-        value = expr->u.stringLit.string->offset;
+        if (c->wordType != WT_NONE)
+            AddWord(c, c->wordType, expr->u.stringLit.string);
+        value = 0;
         break;
     case NodeTypeGlobalSymbolRef:
         switch (expr->u.symbolRef.symbol->storageClass) {
@@ -359,6 +361,10 @@ static void PlaceNestedArrays(ParseContext *c)
         free(block);
         block = next;
     }
+    
+    /* reinitialize the block list */
+    c->dataBlocks = NULL;
+    c->pNextDataBlock = &c->dataBlocks;
 }
 
 /* ParseVar - parse the 'var' statement */
@@ -491,6 +497,7 @@ static void ParseObject(ParseContext *c, char *className)
     FRequire(c, '{');
     while ((tkn = GetToken(c)) != '}') {
         VMVALUE tag, flags = 0;
+        int wordType;
         if (tkn == T_SHARED) {
             flags = P_SHARED;
             tkn = GetToken(c);
@@ -499,6 +506,9 @@ static void ParseObject(ParseContext *c, char *className)
         strcpy(pname, c->token);
         tag = AddProperty(c, pname);
         FRequire(c, ':');
+        
+        /* check to see if the property name is one of the vocabulary words */
+        wordType = FindWordType(pname);
         
         /* find a property copied from the class */
         for (p = (Property *)(objectHdr + 1); p < property; ++p) {
@@ -535,13 +545,15 @@ static void ParseObject(ParseContext *c, char *className)
         /* handle values */
         else {
             VMVALUE offset = (uint8_t *)&p->value - c->dataBuf;
-            if (tkn == '[') {
+            c->wordType = wordType;
+            if (tkn == '{') {
                 ParseNestedArray(c, NULL, offset);
             }
             else {
                 SaveToken(c, tkn);
                 p->value = ParseConstantLiteralExpr(c, FT_DATA, offset);
             }
+            c->wordType = WT_NONE;
         }
 
         FRequire(c, ';');
@@ -652,8 +664,10 @@ static void ParseWords(ParseContext *c, int type)
 {
     int tkn;
     do {
+        String *string;
         FRequire(c, T_STRING);
-        AddWord(c, type, c->token);
+        string = AddString(c, c->token);
+        AddWord(c, type, string);
     } while ((tkn = GetToken(c)) == ',');
     Require(c, tkn, ';');
 }
@@ -1056,6 +1070,8 @@ static VMVALUE ParseConstantLiteralExpr(ParseContext *c, FixupType fixupType, VM
         break;
     case NodeTypeStringLit:
         AddStringRef(c, expr->u.stringLit.string, fixupType, offset);
+        if (c->wordType != WT_NONE)
+            AddWord(c, c->wordType, expr->u.stringLit.string);
         value = 0;
         break;
     case NodeTypeGlobalSymbolRef:
@@ -1927,14 +1943,13 @@ static WordType wordTypes[] = {
 };
 
 /* AddWord - add a vocabulary word */
-static void AddWord(ParseContext *c, int type, char *name)
+static void AddWord(ParseContext *c, int type, String *string)
 {
-    String *string = AddString(c, name);
     Word *word = c->words;
     while (word != NULL) {
-        if (strcmp(name, word->string->data) == 0) {
+        if (strcmp(string->data, word->string->data) == 0) {
             if (type != word->type)
-                ParseError(c, "'%s' already has type %s", name, wordTypes[word->type - 1].name);
+                ParseError(c, "'%s' already has type %s", string->data, wordTypes[word->type - 1].name);
             return; // word is already in the list of words
         }
         word = word->next;
@@ -1945,6 +1960,7 @@ static void AddWord(ParseContext *c, int type, char *name)
     word->next = NULL;
     *c->pNextWord = word;
     c->pNextWord = &word->next;
+    ++c->wordCount;
 }
 
 /* FindWordType - find a word type by name */

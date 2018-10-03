@@ -286,8 +286,12 @@ typedef struct {
     uint8_t stringBuf[MAXSTRING];                   /* string buffer */
     uint8_t *stringFree;                            /* next available string location */
     uint8_t *stringTop;                             /* top of string buffer */
+    Symbol *wordsSymbol;                            /* symbol table entry for '_words' */
+    Symbol *wordTypesSymbol;                        /* symbol table entry for '_wordTypes' */
     Word *words;                                    /* list of words */
     Word **pNextWord;                               /* place to store next word */
+    int wordCount;                                  /* number of words */
+    int wordType;                                   /* word type of current property */
     int debugMode;                                  /* debug mode flag */
 } ParseContext;
 

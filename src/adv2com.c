@@ -50,6 +50,10 @@ int main(int argc, char *argv[])
     c->pNextString = &c->strings;
     c->pNextDataBlock = &c->dataBlocks;
     c->pNextWord = &c->words;
+    c->wordType = WT_NONE;
+    
+    //c->wordsSymbol = AddUndefinedSymbol(c, "_words", SC_OBJECT);
+    //c->wordTypesSymbol = AddUndefinedSymbol(c, "_wordTypes", SC_OBJECT);
     
     /* add the containment properties */
     c->parentProperty = AddProperty(c, "_parent");
@@ -186,30 +190,49 @@ int main(int argc, char *argv[])
     /* compile the program */
     ParseDeclarations(c);
     
+    /* create the vocabulary arrays */
+    if (c->wordCount > 0) {
+        Word *word;
+        
+        /* create the '_words' array */
+        StoreInitializer(c, c->wordCount);
+        AddGlobal(c, "_words", SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
+        for (word = c->words; word != NULL; word = word->next) {
+            AddStringRef(c, word->string, FT_DATA, c->dataFree - c->dataBuf);
+            StoreInitializer(c, 0);
+        }
+        
+        /* create the '_wordTypes' array */
+        StoreInitializer(c, c->wordCount);
+        AddGlobal(c, "_wordTypes", SC_OBJECT, (VMVALUE)(c->dataFree - c->dataBuf));
+        for (word = c->words; word != NULL; word = word->next) {
+            StoreInitializer(c, word->type);
+        }
+    }
+    
     /* place strings at the end of data space */
     PlaceStrings(c);
     
     /* link all child objects with their parents */
     ConnectAll(c);
     
-    if (showSymbols || c->debugMode) {
+    if (showSymbols || c->debugMode)
         PrintSymbols(c);
-    }
-    if (c->debugMode) {
+    if (c->debugMode)
         PrintStrings(c);
-    }
-    printf("data: %d, code %d, strings: %d\n", (int)(c->dataFree - c->dataBuf), (int)(c->codeFree - c->codeBuf), (int)(c->stringFree - c->stringBuf));
-    
+        
     {
         Word *word = c->words;
         if (word) {
-            printf("Words:\n");
+            printf("%d words:\n", c->wordCount);
             while (word != NULL) {
                 printf("  %s %d %d\n", word->string->data, word->type, word->string->offset);
                 word = word->next;
             }
         }
     }
+    
+    printf("data: %d, code %d, strings: %d\n", (int)(c->dataFree - c->dataBuf), (int)(c->codeFree - c->codeBuf), (int)(c->stringFree - c->stringBuf));
     
     image = BuildImage(c, &imageSize);
     
@@ -530,7 +553,7 @@ String *AddString(ParseContext *c, char *value)
     
     /* check to see if the string is already in the table */
     for (str = c->strings; str != NULL; str = str->next)
-        if (strcmp(value, (char *)c->stringBuf + str->offset) == 0)
+        if (strcmp(value, str->data) == 0)
             return str;
 
     /* allocate the string structure */
