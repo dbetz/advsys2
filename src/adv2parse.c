@@ -257,9 +257,8 @@ static VMVALUE ParseNestedArrayConstantLiteralExpr(ParseContext *c, DataBlock *d
 }
 
 /* ParseAndStoreNestedArrayInitializer - parse and store a data initializer */
-static void ParseAndStoreNestedArrayInitializer(ParseContext *c, DataBlock *dataBlock)
+static void ParseAndStoreNestedArrayInitializer(ParseContext *c, DataBlock *dataBlock, VMVALUE offset)
 {
-    VMVALUE offset = c->dataFree - c->dataBuf;
     if (c->dataFree + sizeof(VMVALUE) > c->dataTop)
         ParseError(c, "insufficient data space");
     *(VMVALUE *)c->dataFree = ParseNestedArrayConstantLiteralExpr(c, dataBlock, offset);
@@ -287,7 +286,7 @@ static void ParseNestedArray(ParseContext *c, DataBlock *parent, VMVALUE parentO
         }
         else {
             SaveToken(c, tkn);
-            ParseAndStoreNestedArrayInitializer(c, dataBlock);
+            ParseAndStoreNestedArrayInitializer(c, dataBlock, c->dataFree - arrayBase);
         }
         ++size;
     } while ((tkn = GetToken(c)) == ',');
@@ -344,6 +343,7 @@ static void PlaceNestedArrays(ParseContext *c)
         stringFixup = block->stringFixups;
         while (stringFixup) {
             StringDataFixup *nextString = stringFixup->next;
+            printf("block %d, string %d\n", block->offset, stringFixup->offset);
             AddStringRef(c, stringFixup->string, FT_DATA, block->offset + stringFixup->offset);
             free(stringFixup);
             stringFixup = nextString;
