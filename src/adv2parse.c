@@ -343,7 +343,6 @@ static void PlaceNestedArrays(ParseContext *c)
         stringFixup = block->stringFixups;
         while (stringFixup) {
             StringDataFixup *nextString = stringFixup->next;
-            printf("block %d, string %d\n", block->offset, stringFixup->offset);
             AddStringRef(c, stringFixup->string, FT_DATA, block->offset + stringFixup->offset);
             free(stringFixup);
             stringFixup = nextString;
