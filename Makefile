@@ -74,8 +74,9 @@ $(OBJDIR)/adv2vmdebug.o \
 $(OBJDIR)/adv2exe.o \
 $(OBJDIR)/propbinary.o \
 $(OBJDIR)/advsys2_run_template.o \
-$(OBJDIR)/advsys2_step_template.o \
-$(OBJDIR)/wordfire_template.o
+$(OBJDIR)/advsys2_step_template.o
+
+#$(OBJDIR)/wordfire_template.o
 
 COMHDRS = \
 $(HDRDIR)/adv2compiler.h \
@@ -97,8 +98,9 @@ PROPBINARYOBJS = \
 $(OBJDIR)/propbinaryapp.o \
 $(OBJDIR)/propbinary.o \
 $(OBJDIR)/advsys2_run_template.o \
-$(OBJDIR)/advsys2_step_template.o \
-$(OBJDIR)/wordfire_template.o
+$(OBJDIR)/advsys2_step_template.o
+
+#$(OBJDIR)/wordfire_template.o
 
 all:	$(DIRS) bin2c adv2com adv2int propbinary
 

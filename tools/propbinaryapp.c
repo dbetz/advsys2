@@ -15,8 +15,10 @@ extern uint8_t advsys2_run_template_array[];
 extern int advsys2_run_template_size;
 extern uint8_t advsys2_step_template_array[];
 extern int advsys2_step_template_size;
+#ifdef WORDFIRE_SUPPORT
 extern uint8_t wordfire_template_array[];
 extern int wordfire_template_size;
+#endif
 
 static void Usage(void);
 static uint8_t *ReadEntireFile(char *name, int *pSize);
@@ -94,10 +96,12 @@ int main(int argc, char *argv[])
         template = advsys2_step_template_array;
         templateSize = advsys2_step_template_size;
     }
+#ifdef WORDFIRE_SUPPORT
     else if (strcmp(templateName, "wordfire") == 0) {
         template = wordfire_template_array;
         templateSize = wordfire_template_size;
     }
+#endif
     else {
         printf("error: unknown template name '%s'\n", templateName);
         return 1;
@@ -133,7 +137,15 @@ int main(int argc, char *argv[])
 /* Usage - display a usage message and exit */
 static void Usage(void)
 {
-    printf("usage: propbinary [ -d ] [ -o <output-file> ] [ -t <template-name> ] <input-file>\n");
+#ifdef WORDFIRE_SUPPORT
+    printf("\
+usage: propbinary [ -d ] [ -o <output-file> ] [ -t <template-name> ] <input-file>\n\
+       templates: run, step, wordfire\n");
+#else
+    printf("\
+usage: propbinary [ -d ] [ -o <output-file> ] [ -t <template-name> ] <input-file>\n\
+       templates: run, step\n");
+#endif
     exit(1);
 }
 

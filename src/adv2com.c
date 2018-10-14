@@ -17,7 +17,9 @@ extern uint8_t advsys2_run_template_array[];
 extern int advsys2_run_template_size;
 extern uint8_t advsys2_step_template_array[];
 extern int advsys2_step_template_size;
+#ifdef WORDFIRE_SUPPORT
 extern uint8_t wordfire_template_array[];
+#endif
 extern int wordfire_template_size;
 
 static void Usage(void);
@@ -142,10 +144,12 @@ int main(int argc, char *argv[])
             template = advsys2_step_template_array;
             templateSize = advsys2_step_template_size;
         }
+#ifdef WORDFIRE_SUPPORT
         else if (strcmp(templateName, "wordfire") == 0) {
             template = wordfire_template_array;
             templateSize = wordfire_template_size;
         }
+#endif
         else {
             printf("error: unknown template name '%s'\n", templateName);
             return 1;
@@ -254,9 +258,15 @@ int main(int argc, char *argv[])
   
 static void Usage(void)
 {
+#ifdef WORDFIRE_SUPPORT
     printf("\
 usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] [ -r ] <input-file>\n\
        templates: run, step, wordfire\n");
+#else
+    printf("\
+usage: adv2com [ -d ] [ -o <output-file> ] [ -t <template-name> ] [ -s ] [ -r ] <input-file>\n\
+       templates: run, step\n");
+#endif
     exit(1);
 }
 
