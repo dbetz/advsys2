@@ -48,7 +48,6 @@ enum {
     T_SUPER,
     T_TRY,
     T_CATCH,
-    T_FINALLY,
     T_THROW,
     T_BYTE,
     T_ASM,
@@ -408,7 +407,6 @@ struct ParseTreeNode {
             ParseTreeNode *statement;
             LocalSymbol *catchSymbol;
             ParseTreeNode *catchStatement;
-            ParseTreeNode *finallyStatement;
         } tryStatement;
         struct {
             ParseTreeNode *expr;

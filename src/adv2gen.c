@@ -261,16 +261,16 @@ static void code_breakorcontinue(ParseContext *c, ParseTreeNode *expr, int isBre
     }
 }
 
-/* code_try - generate code for a 'try/catch/finally' statement */
+/* code_try - generate code for a 'try/catch' statement */
 static void code_try(ParseContext *c, ParseTreeNode *expr)
 {
-    int catch, finally;
+    int catch, end;
     putcbyte(c, OP_TRY);
     catch = putcword(c, 0);
     code_statement(c, expr->u.tryStatement.statement);
     putcbyte(c, OP_TRYEXIT);
     putcbyte(c, OP_BR);
-    finally = putcword(c, 0);
+    end = putcword(c, 0);
     if (expr->u.tryStatement.catchStatement) {
         fixupbranch(c, catch, codeaddr(c));
         putcbyte(c, OP_LADDR);
@@ -280,10 +280,7 @@ static void code_try(ParseContext *c, ParseTreeNode *expr)
         putcbyte(c, OP_DROP);
         code_statement(c, expr->u.tryStatement.catchStatement);
     }
-    fixupbranch(c, finally, codeaddr(c));
-    if (expr->u.tryStatement.finallyStatement) {
-        code_statement(c, expr->u.tryStatement.finallyStatement);
-    }
+    fixupbranch(c, end, codeaddr(c));
 }
 
 /* code_block - generate code for an {} block statement */

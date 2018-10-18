@@ -1,9 +1,8 @@
 # advsys2
 A major update to AdvSys switching to a C-like syntax.
 
-- Need a way to parse user input.
+- Add a parser.
 - Need to support SYNONYMs
-- Implement the finally clause.
 - Cleanup local vs global memory allocation.
 - Free local memory after each function is compiled.
 

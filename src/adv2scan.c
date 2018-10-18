@@ -38,7 +38,6 @@ static struct {
 {   "super",    T_SUPER     },
 {   "try",      T_TRY       },
 {   "catch",    T_CATCH     },
-{   "finally",  T_FINALLY   },
 {   "throw",    T_THROW     },
 {   "byte",     T_BYTE      },
 {   "asm",      T_ASM       },

@@ -81,10 +81,6 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
             printf("%*scatch\n", indent + 2, "");
             PrintNode(c, node->u.tryStatement.catchStatement, indent + 4);
         }
-        if (node->u.tryStatement.finallyStatement) {
-            printf("%*sthrow\n", indent + 2, "");
-            PrintNode(c, node->u.tryStatement.finallyStatement, indent + 4);
-        }
         break;
     case NodeTypeThrow:
         printf("Throw\n");

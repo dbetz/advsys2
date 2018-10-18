@@ -851,7 +851,7 @@ static ParseTreeNode *ParseBlock(ParseContext *c)
     return node;
 }
 
-/* ParseTry - parse the 'try/catch/finally' statement */
+/* ParseTry - parse the 'try/catch' statement */
 static ParseTreeNode *ParseTry(ParseContext *c)
 {
     ParseTreeNode *node = NewParseTreeNode(c, NodeTypeTry);
@@ -881,16 +881,8 @@ static ParseTreeNode *ParseTry(ParseContext *c)
         SaveToken(c, tkn);
     }
     
-    if ((tkn = GetToken(c)) == T_FINALLY) {
-        FRequire(c, '{');
-        node->u.tryStatement.finallyStatement = ParseBlock(c);
-    }
-    else {
-        SaveToken(c, tkn);
-    }
-    
-    if (!node->u.tryStatement.catchStatement && !node->u.tryStatement.finallyStatement)
-        ParseError(c, "try requires either a catch or a finally clause");
+    if (!node->u.tryStatement.catchStatement)
+        ParseError(c, "try requires a catch clause");
             
     return node;
 }
