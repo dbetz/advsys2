@@ -54,11 +54,13 @@ SPINDIR=spin
 TOOLSDIR=tools
 OBJDIR=$(BUILD)/obj
 BINDIR=$(BUILD)/bin
+INSTALLDIR=~/bin
 
 CC=$(PREFIX)gcc
 TOOLCC=gcc
 ECHO=echo
 MKDIR=mkdir -p
+CP=cp
 SPINCMP=openspin
 
 DIRS = $(OBJDIR) $(BINDIR)
@@ -104,6 +106,9 @@ $(OBJDIR)/advsys2_step_template.o
 
 all:	$(DIRS) bin2c adv2com adv2int propbinary
 
+install:    all $(INSTALLDIR)
+	$(CP) $(BINDIR)/* $(INSTALLDIR)
+    
 game:    adv2int game.dat
 	$(BINDIR)/adv2int game.dat
 
@@ -161,7 +166,7 @@ $(BINDIR)/bin2c$(EXT):	$(TOOLSDIR)/bin2c.c
 	$(TOOLCC) $(CFLAGS) $(LDFLAGS) $(TOOLSDIR)/bin2c.c -o $@
 	@$(ECHO) $@
 
-$(DIRS):
+$(DIRS) $(INSTALLDIR):
 	$(MKDIR) $@
 
 clean:
