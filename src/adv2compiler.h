@@ -300,7 +300,7 @@ typedef enum {
     PVF_STORE
 } PvFcn;
 
-/* partial value typess */
+/* partial value types */
 typedef enum {
     PVT_LONG,
     PVT_BYTE

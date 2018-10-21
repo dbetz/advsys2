@@ -603,9 +603,13 @@ _OP_DUP                ' duplicate the top element of the stack
         jmp     #_next
 
 _OP_TUCK               ' a b -> b a b
-        rdlong  r1,sp
         call    #push_tos
-        jmp     #return_r1
+        mov     r2,sp
+        add     r2,#4
+        rdlong  r3,r2
+        wrlong  tos,r2
+        wrlong  r3,sp
+        jmp     #_next
 
 _OP_SWAP               ' swap the top to elements of the stack
         rdlong  r1,sp

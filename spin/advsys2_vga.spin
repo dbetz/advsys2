@@ -49,7 +49,10 @@ PUB clear
   bytefill(@scrn{0}, " ", bcnt_raw)
       
 PUB tx(c)
-  if (c == $0a)
+  if c == $08
+    if x > XSTART
+      --x
+  else if c == $0a
     crlf
   else
     indx.byte[y * columns + x] := BW

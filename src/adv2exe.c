@@ -289,10 +289,9 @@ int Execute(ImageHdr *image, int debug)
             CPush(i, i->tos);
             break;
         case OP_TUCK:
-            CPush(i, i->tos);
-            tmp = i->sp[0];
+            CPush(i, 0);
             i->sp[0] = i->sp[1];
-            i->sp[1] = tmp;
+            i->sp[1] = i->tos;
             break;
         case OP_SWAP:
             tmp = i->tos;

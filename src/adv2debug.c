@@ -169,7 +169,7 @@ void PrintNode(ParseContext *c, ParseTreeNode *node, int indent)
         PrintNode(c, node->u.binaryOp.right, indent + 4);
         break;
     case NodeTypeArrayRef:
-        printf("ArrayRef\n");
+        printf("ArrayRef: %s\n", node->u.arrayRef.type == PVT_LONG ? "LONG" : "BYTE");
         printf("%*sarray\n", indent + 2, "");
         PrintNode(c, node->u.arrayRef.array, indent + 4);
         printf("%*sindex\n", indent + 2, "");
