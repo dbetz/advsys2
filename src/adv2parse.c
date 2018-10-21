@@ -639,7 +639,7 @@ static ParseTreeNode *ParseFunctionBody(ParseContext *c, ParseTreeNode *node, in
             FRequire(c, T_IDENTIFIER);
             symbol = AddLocalSymbol(c, &node->u.functionDef.locals, c->token, localOffset++);
             if ((tkn = GetToken(c)) == '=') {
-                symbol->initialValue = ParseExpr(c);
+                symbol->initialValue = ParseAssignmentExpr(c);
             }
             else {
                 SaveToken(c, tkn);
